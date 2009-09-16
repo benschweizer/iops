@@ -1,0 +1,112 @@
+# some random thoughts about an ascii plot of the measures
+#    vpc = 10 # value per char
+#    io_g =
+#
+# 
+# /dev/raid1/scratch,  250 GiB:                      K          M         G
+#                                                  125        125       125
+#                                               136251     136251    136251
+#                                           1248624862112486248621248624862
+# -------------------------------------------------------------------------
+#   512   B blocks: 58.6 IOs/s,   29 KiB/s |    xi                       
+#  1024   B blocks: 62.8 IOs/s,   62 KiB/s |     *                       
+#     2 KiB blocks: 54.2 IOs/s,  108 KiB/s |     ix                      
+#     4 KiB blocks: 61.1 IOs/s,  244 KiB/s |     i x                     
+#     8 KiB blocks: 62.9 IOs/s,  503 KiB/s |     i  x                    
+#    16 KiB blocks: 60.9 IOs/s,  974 KiB/s |     i   x                   
+#    32 KiB blocks: 52.4 IOs/s,    1 MiB/s |     i    x                  
+#    64 KiB blocks: 51.8 IOs/s,    3 MiB/s |     i     x                 
+#   128 KiB blocks: 49.2 IOs/s,    6 MiB/s |     i      x                
+#   256 KiB blocks: 40.2 IOs/s,   10 MiB/s |     i       x               
+#   512 KiB blocks: 31.5 IOs/s,   15 MiB/s |    i        x               
+#  1024 KiB blocks: 25.3 IOs/s,   25 MiB/s |    i         x              
+#     2 MiB blocks: 14.9 IOs/s,   29 MiB/s |   i          x              
+#     4 MiB blocks:  9.5 IOs/s,   37 MiB/s |   i           x             
+#     8 MiB blocks:  5.6 IOs/s,   44 MiB/s |  i            x             
+#    16 MiB blocks:  2.6 IOs/s,   42 MiB/s | i             x             
+#    32 MiB blocks:  1.6 IOs/s,   50 MiB/s |i              x             
+#    64 MiB blocks:  0.8 IOs/s,   51 MiB/s |               x             
+#
+# /dev/raid1/scratch,  250 GiB:             0        0        M        123G
+#                                           K        K        1111111110000
+#                                                    1234567890123456780000
+#                                           1234567890000000000000000000000
+# -------------------------------------------------------------------------
+#   512   B blocks: 58.6 IOs/s,   29 KiB/s |          x                   
+#  1024   B blocks: 62.8 IOs/s,   62 KiB/s |              x               
+#     2 KiB blocks: 54.2 IOs/s,  108 KiB/s |                  x           
+#     4 KiB blocks: 61.1 IOs/s,  244 KiB/s |                   x          
+#     8 KiB blocks: 62.9 IOs/s,  503 KiB/s |                     x        
+#    16 KiB blocks: 60.9 IOs/s,  974 KiB/s |                          x   
+#    32 KiB blocks: 52.4 IOs/s,    1 MiB/s |                           x  
+#    64 KiB blocks: 51.8 IOs/s,    3 MiB/s |                             x
+#   128 KiB blocks: 49.2 IOs/s,    6 MiB/s |                              
+#   256 KiB blocks: 40.2 IOs/s,   10 MiB/s |                              
+#   512 KiB blocks: 31.5 IOs/s,   15 MiB/s |                              
+#  1024 KiB blocks: 25.3 IOs/s,   25 MiB/s |                              
+#     2 MiB blocks: 14.9 IOs/s,   29 MiB/s |                              
+#     4 MiB blocks:  9.5 IOs/s,   37 MiB/s |                              
+#     8 MiB blocks:  5.6 IOs/s,   44 MiB/s |                              
+#    16 MiB blocks:  2.6 IOs/s,   42 MiB/s |                              
+#    32 MiB blocks:  1.6 IOs/s,   50 MiB/s |                              
+#    64 MiB blocks:  0.8 IOs/s,   51 MiB/s |                              
+#
+# /dev/raid1/scratch, 250 GiB:                      K i B / s                   M                   G
+#                                                       1 2 5               1 2 5               1 2 5
+#                     2-log scale                 1 3 6 2 5 1         1 3 6 2 5 1         1 3 6 2 5 1
+#                                         1 2 4 8 6 2 4 8 6 2 1 2 4 8 6 2 4 8 6 2 1 2 4 8 6 2 4 8 6 2
+#
+#                                                                               1   1   1   1   1   1
+#                     linear scale          1   2   3   4   5   6   7   8   9   0   1   2   3   4   5
+#                                         5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0
+#                                                                    12
+#                                                           12345678900
+#                     10-log scale        12345678912345678900000000000
+#                                                  00000000000000000000
+# ----------------------------------------------------------------------------------------------------
+#  512   B blocks: 70.6 IOs/s,  35 KiB/s |          x    o          I     i     
+#    1 KiB blocks: 67.3 IOs/s,  67 KiB/s |            x o         I       i    
+#    2 KiB blocks: 66.3 IOs/s, 132 KiB/s |              X         I       i     
+#    4 KiB blocks: 65.0 IOs/s, 260 KiB/s |              o x       I       i      
+#    8 KiB blocks: 64.8 IOs/s, 518 KiB/s |              o   x   I         i       
+#   16 KiB blocks: 59.1 IOs/s, 946 KiB/s |             o    x I         i         
+#   32 KiB blocks: 57.6 IOs/s,   1 MiB/s |             o      I         i          
+#   64 KiB blocks: 52.1 IOs/s,   3 MiB/s |             o     I  x       i           
+#  128 KiB blocks: 51.3 IOs/s,   6 MiB/s |             o     I    x     i            
+#  256 KiB blocks: 46.3 IOs/s,  11 MiB/s |            o   I         x   i              
+#  512 KiB blocks: 33.2 IOs/s,  16 MiB/s |          Io                x i   
+#    1 MiB blocks: 25.0 IOs/s,  24 MiB/s |        I o                 *     
+#    2 MiB blocks: 16.7 IOs/s,  33 MiB/s |    I    o                  i x    
+#    4 MiB blocks: 10.0 IOs/s,  40 MiB/s |  I      o                i   x   
+#    8 MiB blocks:  5.9 IOs/s,  47 MiB/s |I   o                   i     x   
+#   16 MiB blocks:  2.9 IOs/s,  46 MiB/s | o                    i       x   
+#   32 MiB blocks:  1.4 IOs/s,  45 MiB/s |o                   i         x   
+#   64 MiB blocks:  0.7 IOs/s,  42 MiB/s |                  i           x   
+# ----------------------------------------------------------------------------------------------------
+#                                        | x: Throughput, i: IOs/s 2-log scale, I: IOs/s linear scale
+#                                        | o: IO/s 10-log scale
+#
+# /dev/raid1/scratch, 250 GiB:
+# ----------------------------------------------------------------------------------------------------
+#  512   B blocks: 66.2 IOs/s,  33 KiB/s
+#    1 KiB blocks: 61.3 IOs/s,  61 KiB/s
+#    2 KiB blocks: 64.3 IOs/s, 128 KiB/s
+#    4 KiB blocks: 65.6 IOs/s, 262 KiB/s
+#    8 KiB blocks: 64.7 IOs/s, 517 KiB/s
+#   16 KiB blocks: 60.3 IOs/s, 964 KiB/s
+#   32 KiB blocks: 55.7 IOs/s,   1 MiB/s
+#   64 KiB blocks: 51.4 IOs/s,   3 MiB/s
+#  128 KiB blocks: 49.8 IOs/s,   6 MiB/s
+#  256 KiB blocks: 42.5 IOs/s,  10 MiB/s
+#  512 KiB blocks: 34.5 IOs/s,  17 MiB/s
+#    1 MiB blocks: 24.5 IOs/s,  24 MiB/s
+#    2 MiB blocks: 16.0 IOs/s,  31 MiB/s
+#    4 MiB blocks: 10.1 IOs/s,  40 MiB/s
+#    8 MiB blocks:  5.5 IOs/s,  43 MiB/s
+#   16 MiB blocks:  3.0 IOs/s,  48 MiB/s
+#   32 MiB blocks:  1.5 IOs/s,  46 MiB/s
+#   64 MiB blocks:  0.8 IOs/s,  50 MiB/s
+# ----------------------------------------------------------------------------------------------------
+# 
+#
+# why 2-based scale? do 10-based log scale...

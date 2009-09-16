@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c) 2008 Benjamin Schweizer. All rights reserved.
+# Copyright (c) 2008-2009 Benjamin Schweizer and others. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -36,9 +36,11 @@
 # Authors
 # ~~~~~~~
 # Benjamin Schweizer, http://benjamin-schweizer.de/contact
+# Uwe Menges
 #
 # Changes
 # ~~~~~~~
+# 2009-09-16, uwe: changed formatting, fixed last block bug
 # 2008-10-16, benjamin: initial release
 #
 # Todo
@@ -51,7 +53,7 @@ import random
 import time
 
 def usage():
-    print """Copyright (c) 2008 Benjamin Schweizer. All rights reserved.
+    print """Copyright (c) 2008-2009 Benjamin Schweizer and others. All rights reserved.
 
 usage:
 
@@ -72,40 +74,38 @@ def greek(size):
     # Copyright (c) 1999 Martin Pohl, copied from
     # http://mail.python.org/pipermail/python-list/1999-December/018519.html
     _abbrevs = [
-        (1<<50L, ' P'),
-        (1<<40L, ' T'), 
-        (1<<30L, ' G'), 
-        (1<<20L, ' M'), 
-        (1<<10L, ' k'),
-        (1, '')
+        (1<<50L, 'Pi'),
+        (1<<40L, 'Ti'), 
+        (1<<30L, 'Gi'), 
+        (1<<20L, 'Mi'), 
+        (1<<10L, 'Ki'),
+        (1     , '  ')
     ]
 
     for factor, suffix in _abbrevs:
-        if size > factor:
+        if size >= factor:
             break
 
-    return `int(size/factor)` + suffix
+    return "%3.d %s" % (int(size/factor), suffix)
 
 
-def iotest(dev, blocksize=512, t=10):
+def iotest(fh, eof, blocksize=512, t=10):
     """io test"""
-    fh = open(dev, 'r')
-    bof = 0
-    fh.seek(0,2)
-    eof = fh.tell()
 
     io_num = 0
     start_ts = time.time()
     while time.time() < start_ts+t:
         io_num += 1
-        pos = random.randint(bof,eof)
+        pos = random.randint(0, eof - blocksize)
         fh.seek(pos)
         blockdata = fh.read(blocksize)
     end_ts = time.time()
 
     total_ts = end_ts - start_ts
 
-    print "%s, %sB, %sB blocks: %.1f IOs/s, %sB/s" % (dev, greek(eof), greek(blocksize), io_num/total_ts, greek(int(blocksize*io_num/total_ts)))
+    io_s = io_num/total_ts
+    by_s = int(blocksize*io_num/total_ts)
+    print " %sB blocks: %6.1f IOs/s, %sB/s" % (greek(blocksize), io_s, greek(by_s))
 
     return io_num/total_ts
 
@@ -114,16 +114,22 @@ if __name__ == '__main__':
         usage()
         raise SystemExit
 
-    device = sys.argv[1]
+    dev = sys.argv[1]
     t = 10
     if len(sys.argv) == 3:
         t = int(sys.argv[2])
 
     blocksize = 512
     try:
+        fh = open(dev, 'r')
+        fh.seek(0,2)
+        eof = fh.tell()
+
+        print("%s, %sB:" % (dev, greek(eof)))
+
         iops = 2
         while iops > 1:
-            iops = iotest(device, blocksize, t)
+            iops = iotest(fh, eof, blocksize, t)
             blocksize *= 2
     except IOError, (err_no, err_str):
         raise SystemExit(err_str)
