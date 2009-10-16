@@ -69,24 +69,40 @@ example:
 """
 
 
-def greek(size):
-    """Return a string representing the greek/metric suffix of a size"""
+def greek(value, precision = 0, prefix = ''):
+    """Return a string representing the IEC or SI suffix of a value"""
     # Copyright (c) 1999 Martin Pohl, copied from
     # http://mail.python.org/pipermail/python-list/1999-December/018519.html
-    _abbrevs = [
-        (1<<50L, 'Pi'),
-        (1<<40L, 'Ti'), 
-        (1<<30L, 'Gi'), 
-        (1<<20L, 'Mi'), 
-        (1<<10L, 'Ki'),
-        (1     , '  ')
-    ]
+    if prefix != '':
+        # Use SI (10-based) units
+        _abbrevs = [
+            (10**15, 'P'),
+            (10**12, 'T'),
+            (10** 9, 'G'),
+            (10** 6, 'M'),
+            (10** 3, 'k'),
+            (1     , ' ')
+        ]
+    else:
+        # Use IEC (2-based) units
+        _abbrevs = [
+            (1<<50L, 'Pi'),
+            (1<<40L, 'Ti'),
+            (1<<30L, 'Gi'),
+            (1<<20L, 'Mi'),
+            (1<<10L, 'Ki'),
+            (1     , '  ')
+        ]
 
     for factor, suffix in _abbrevs:
-        if size >= factor:
+        if value >= factor:
             break
 
-    return "%3.d %s" % (int(size/factor), suffix)
+    if precision == 0:
+        return "%3.d %s" % (int(value/factor), suffix)
+    else:
+        fmt="%%%d.%df %%s" % (4+precision, precision)
+        return fmt % (float(value)/factor, suffix)
 
 
 def iotest(fh, eof, blocksize=512, t=10):
@@ -105,9 +121,11 @@ def iotest(fh, eof, blocksize=512, t=10):
 
     io_s = io_num/total_ts
     by_s = int(blocksize*io_num/total_ts)
-    print " %sB blocks: %6.1f IOs/s, %sB/s" % (greek(blocksize), io_s, greek(by_s))
+    print " %sB blocks: %6.1f IOs/s, %sB/s (%sbit/s)" % (greek(blocksize), io_s,
+        greek(by_s, 1), greek(8*by_s, 1, 'si'))
 
     return io_num/total_ts
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -125,10 +143,10 @@ if __name__ == '__main__':
         fh.seek(0,2)
         eof = fh.tell()
 
-        print("%s, %sB:" % (dev, greek(eof)))
+        print("%s, %sB:" % (dev, greek(eof, 2, 'si')))
 
         iops = 2
-        while iops > 1:
+        while iops > 1 and blocksize < eof:
             iops = iotest(fh, eof, blocksize, t)
             blocksize *= 2
     except IOError, (err_no, err_str):
