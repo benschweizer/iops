@@ -26,6 +26,7 @@
 #
 # Changes
 # ~~~~~~~
+# 2010-07-22, benjamin: fixed 32bit ioctls on bsd
 # 2010-07-21, benjamin: freebsd/osx support, switched to isc license
 # 2009-09-16, uwe: changed formatting, fixed last block bug
 # 2008-10-16, benjamin: initial release
@@ -33,12 +34,13 @@
 # Todo
 # ~~~~
 # - add threading support to benchmark native command queueing
-# - freebsd lseek is broken
+# - check/add netbsd/openbsd mediasize ioctls
 #
 
 import sys
 import fcntl
 import array
+import struct
 import random
 import time
 
@@ -46,26 +48,27 @@ def mediasize(fh):
     """report the media size for an already open device"""
 
     if sys.platform in ['darwin']:
-        # mac os x 10.6 x86_64 sysctl from sys/disk.h
+        # mac os x 10.5+ sysctl from sys/disk.h
         DKIOCGETBLOCKSIZE = 0x40046418
         DKIOCGETBLOCKCOUNT = 0x40086419
 
-        buf = array.array('I', [0])
+        buf = array.array('B', range(0,4))  # uint32
         r = fcntl.ioctl(fh.fileno(), DKIOCGETBLOCKSIZE, buf, 1)
-        blocksize = buf[0]
-        buf = array.array('L', [0])
+        blocksize = struct.unpack('I', buf)[0]
+        buf = array.array('B', range(0,8))  # uint64
         r = fcntl.ioctl(fh.fileno(), DKIOCGETBLOCKCOUNT, buf, 1)
-        blockcount = buf[0]
+        blockcount = struct.unpack('Q', buf)[0]
+
         mediasize = blocksize*blockcount
         return mediasize
 
     elif sys.platform in ['freebsd8']:
-        # freebsd 8 x86_64 sysctl from sys/disk.h
+        # freebsd 8 sysctl from sys/disk.h
         DIOCGMEDIASIZE = 0x40086481
 
-        buf = array.array('L', [0])
+        buf = array.array('B', range(0,8))  # off_t / int64
         r = fcntl.ioctl(fh.fileno(), DIOCGMEDIASIZE, buf, 1)
-        mediasize = buf[0]
+        mediasize = struct.unpack('q', buf)[0]
         return mediasize
 
     else: # linux or compat
@@ -146,7 +149,7 @@ def iotest(fh, eof, blocksize=512, t=10):
     while time.time() < start_ts+t:
         io_num += 1
         # freebsd8: need 512B sector alignment and at least one whole block left
-        pos = random.randint(0, (eof - blocksize) / 512) * 512
+        pos = random.randint(0, eof - blocksize) & ~0x1ff
         fh.seek(pos)
         blockdata = fh.read(blocksize)
     end_ts = time.time()
