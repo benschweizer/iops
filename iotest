@@ -145,7 +145,8 @@ def iotest(fh, eof, blocksize=512, t=10):
     start_ts = time.time()
     while time.time() < start_ts+t:
         io_num += 1
-        pos = random.randint(0, eof - blocksize)
+        # freebsd8: need 512B sector alignment and at least one whole block left
+        pos = random.randint(0, (eof - blocksize) / 512) * 512
         fh.seek(pos)
         blockdata = fh.read(blocksize)
     end_ts = time.time()
