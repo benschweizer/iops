@@ -32,12 +32,58 @@
 #
 # Todo
 # ~~~~
-# - we'll see
+# - add threading support to benchmark native command queueing
+# - freebsd lseek is broken
 #
 
 import sys
+import fcntl
+import array
 import random
 import time
+
+def mediasize(fh):
+    """report the media size for an already open device"""
+
+    if sys.platform in ['darwin']:
+        # mac os x 10.6 x86_64 sysctl from sys/disk.h
+        DKIOCGETBLOCKSIZE = 0x40046418
+        DKIOCGETBLOCKCOUNT = 0x40086419
+
+        buf = array.array('I', [0])
+        r = fcntl.ioctl(fh.fileno(), DKIOCGETBLOCKSIZE, buf, 1)
+        blocksize = buf[0]
+        buf = array.array('L', [0])
+        r = fcntl.ioctl(fh.fileno(), DKIOCGETBLOCKCOUNT, buf, 1)
+        blockcount = buf[0]
+        mediasize = blocksize*blockcount
+        return mediasize
+
+    elif sys.platform in ['freebsd8']:
+        # freebsd 8 x86_64 sysctl from sys/disk.h
+        DIOCGMEDIASIZE = 0x40086481
+
+        buf = array.array('L', [0])
+        r = fcntl.ioctl(fh.fileno(), DIOCGMEDIASIZE, buf, 1)
+        mediasize = buf[0]
+        return mediasize
+
+    else: # linux or compat
+        # linux 2.6 lseek from fcntl.h
+        SEEK_SET=0
+        SEEK_CUR=1
+        SEEK_END=2
+
+        oldpos = fh.tell()
+        fh.seek(0,SEEK_END)
+        mediasize = fh.tell()
+        fh.seek(oldpos, SEEK_SET)
+
+    if not mediasize:
+        raise Exception("cannot determine media size")
+
+    return mediasize
+
 
 def usage():
     print """Copyright (c) 2008-2010 Benjamin Schweizer and others.
@@ -127,8 +173,7 @@ if __name__ == '__main__':
     blocksize = 512
     try:
         fh = open(dev, 'r')
-        fh.seek(0,2)
-        eof = fh.tell()
+        eof = mediasize(fh)
 
         print("%s, %sB:" % (dev, greek(eof, 2, 'si')))
 
