@@ -102,21 +102,20 @@ def mediasize(dev):
     return mediasize
 
 
-def usage():
-    print """Copyright (c) 2008-2010 Benjamin Schweizer and others.
+USAGE = """Copyright (c) 2008-2010 Benjamin Schweizer and others.
 
 usage:
 
-    iotest [-n threads] <device> [time]
+    iotest [-n|--num_threads threads] [-t|--time time] <device>
 
-    device  := some block device
-    time    := time in seconds
-    threads := number of concurrent io threads
+    threads := number of concurrent io threads, default 1
+    time    := time in seconds, default 10
+    device  := some block device, like /dev/sda
 
 example:
 
     iotest /dev/sda
-    iotest -n 8 /dev/disk0 2
+    iotest -n 8 -t 2 /dev/disk0
 
 """
 
@@ -181,22 +180,27 @@ def iotest(dev, blocksize=512, t=10):
 
 if __name__ == '__main__':
     # parse
-    if len(sys.argv) < 2:
-        usage()
-        raise SystemExit
 
-    dev = sys.argv[1]
     t = 10
-    if len(sys.argv) == 3:
-        t = int(sys.argv[2])
+    num_threads = 1
+    dev = None
 
-    num_threads = 32
+    if len(sys.argv) < 2:
+        raise SystemExit(USAGE)
+
+    while sys.argv:
+        arg = sys.argv.pop(0)
+        if arg in ['-n', '--num-threads']:
+            num_threads = int(sys.argv.pop(0))
+        elif arg in ['-t', '--time']:
+            t = int(sys.argv.pop(0))
+    dev = arg
 
     # process
     pool = Pool(num_threads)
     blocksize = 512
     try:
-        print "%s, %sB @%d threads:" % (dev, greek(mediasize(dev), 2, 'si'), num_threads)
+        print "%s, %sB, %d threads:" % (dev, greek(mediasize(dev), 2, 'si'), num_threads)
         iops = 2
         while iops > 1 and blocksize < mediasize(dev):
             iops = 0
