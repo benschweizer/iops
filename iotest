@@ -43,13 +43,19 @@ import array
 import struct
 import random
 import time
+Pool = None
 try:
     from multiprocessing import Pool
 except ImportError:
     raise
 
-def mediasize(fh):
+def mediasize(dev):
     """report the media size for an already open device"""
+    # caching
+    global _mediasizes
+    if not '_mediasizes' in globals(): _mediasizes = {}
+    if dev in _mediasizes:
+        return _mediasizes[dev]
 
     mediasize = 0 # bytes
 
@@ -58,22 +64,25 @@ def mediasize(fh):
         DKIOCGETBLOCKSIZE = 0x40046418
         DKIOCGETBLOCKCOUNT = 0x40086419
 
+        fh = open(dev, 'r')
         buf = array.array('B', range(0,4))  # uint32
         r = fcntl.ioctl(fh.fileno(), DKIOCGETBLOCKSIZE, buf, 1)
         blocksize = struct.unpack('I', buf)[0]
         buf = array.array('B', range(0,8))  # uint64
         r = fcntl.ioctl(fh.fileno(), DKIOCGETBLOCKCOUNT, buf, 1)
         blockcount = struct.unpack('Q', buf)[0]
-
+        fh.close()
         mediasize = blocksize*blockcount
 
     elif sys.platform in ['freebsd8']:
         # freebsd 8 sysctl from sys/disk.h
         DIOCGMEDIASIZE = 0x40086481
 
+        fh = open(dev, 'r')
         buf = array.array('B', range(0,8))  # off_t / int64
         r = fcntl.ioctl(fh.fileno(), DIOCGMEDIASIZE, buf, 1)
         mediasize = struct.unpack('q', buf)[0]
+        fh.close()
 
     else: # linux or compat
         # linux 2.6 lseek from fcntl.h
@@ -81,14 +90,15 @@ def mediasize(fh):
         SEEK_CUR=1
         SEEK_END=2
 
-        oldpos = fh.tell()
+        fh = open(dev, 'r')
         fh.seek(0,SEEK_END)
         mediasize = fh.tell()
-        fh.seek(oldpos, SEEK_SET)
+        fh.close()
 
     if not mediasize:
         raise Exception("cannot determine media size")
 
+    _mediasizes[dev] = mediasize
     return mediasize
 
 
@@ -147,30 +157,30 @@ def greek(value, precision=0, prefix=None):
         return fmt % (float(value)/factor, suffix)
 
 
-def iotest(fh, eof, blocksize=512, t=10):
+def iotest(dev, blocksize=512, t=10):
     """io test"""
 
-    io_num = 0
-    start_ts = time.time()
-    while time.time() < start_ts+t:
-        io_num += 1
-        pos = random.randint(0, eof - blocksize) # need at least one block left
+    fh = open(dev, 'r')
+    count = 0
+    start = time.time()
+    while time.time() < start+t:
+        count += 1
+        pos = random.randint(0, mediasize(dev) - blocksize) # need at least one block left
         pos &= ~0x1ff   # freebsd8: pos needs 512B sector alignment
         fh.seek(pos)
         blockdata = fh.read(blocksize)
-    end_ts = time.time()
+    end = time.time()
 
-    total_ts = end_ts - start_ts
+    t = end - start
 
-    io_s = io_num/total_ts
-    by_s = int(blocksize*io_num/total_ts)
-    print " %sB blocks: %6.1f IOs/s, %sB/s (%sbit/s)" % (greek(blocksize), io_s,
-        greek(by_s, 1), greek(8*by_s, 1, 'si'))
+    fh.close()
 
-    return io_num/total_ts
+    iops = count/t
+    return iops
 
 
 if __name__ == '__main__':
+    # parse
     if len(sys.argv) < 2:
         usage()
         raise SystemExit
@@ -180,21 +190,32 @@ if __name__ == '__main__':
     if len(sys.argv) == 3:
         t = int(sys.argv[2])
 
+    num_threads = 32
+
+    # process
+    pool = Pool(num_threads)
     blocksize = 512
     try:
-        fh = open(dev, 'r')
-        eof = mediasize(fh)
-
-        print("%s, %sB:" % (dev, greek(eof, 2, 'si')))
-
+        print "%s, %sB @%d threads:" % (dev, greek(mediasize(dev), 2, 'si'), num_threads)
         iops = 2
-        while iops > 1 and blocksize < eof:
-            iops = iotest(fh, eof, blocksize, t)
+        while iops > 1 and blocksize < mediasize(dev):
+            iops = 0
+            results = []
+            for i in range(0, num_threads):
+                results.append(pool.apply_async(func=iotest, args=(dev, blocksize, t,)))
+            for result in results:
+                iops += result.get(3600) # KeyboardInterrupt is lost if we wait forever
+
+            bandwidth = int(blocksize*iops)
+            print " %sB blocks: %6.1f IO/s, %sB/s (%sbit/s)" % (greek(blocksize), iops,
+                greek(bandwidth, 1), greek(8*bandwidth, 1, 'si'))
+
             blocksize *= 2
     except IOError, (err_no, err_str):
         raise SystemExit(err_str)
     except KeyboardInterrupt:
         print "caught ctrl-c, bye."
+    finally:
+        pool.terminate()
 
 # eof.
-
