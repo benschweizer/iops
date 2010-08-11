@@ -157,7 +157,11 @@ def greek(value, precision=0, prefix=None):
 
 
 def iotest(dev, blocksize=512, t=10):
-    """io test"""
+    """io test
+    Perform random 512b aligned reads of blocksize bytes on fh for t seconds
+    and print a stats line
+    Returns: IOs/s
+    """
 
     fh = open(dev, 'r')
     count = 0
