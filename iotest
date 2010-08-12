@@ -26,6 +26,7 @@
 #
 # Changes
 # ~~~~~~~
+# 2010-08-12, benjamin/uwe: added multi-threading support
 # 2010-07-22, benjamin: fixed 32bit ioctls on bsd
 # 2010-07-21, benjamin: freebsd/osx support, switched to isc license
 # 2009-09-16, uwe: changed formatting, fixed last block bug
@@ -33,9 +34,25 @@
 #
 # Todo
 # ~~~~
-# - add threading support to benchmark native command queueing
 # - check/add netbsd/openbsd mediasize ioctls
 #
+
+USAGE = """Copyright (c) 2008-2010 Benjamin Schweizer and others.
+
+usage:
+
+    iotest [-n|--num_threads threads] [-t|--time time] <device>
+
+    threads := number of concurrent io threads, default 1
+    time    := time in seconds, default 10
+    device  := some block device, like /dev/sda
+
+example:
+
+    iotest /dev/sda
+    iotest -n 8 -t 2 /dev/disk0
+
+"""
 
 import sys
 import fcntl
@@ -43,14 +60,10 @@ import array
 import struct
 import random
 import time
-Pool = None
-try:
-    from multiprocessing import Pool
-except ImportError:
-    raise
+import threading
 
 def mediasize(dev):
-    """report the media size for an already open device"""
+    """report the media size for a device"""
     # caching
     global _mediasizes
     if not '_mediasizes' in globals(): _mediasizes = {}
@@ -100,25 +113,6 @@ def mediasize(dev):
 
     _mediasizes[dev] = mediasize
     return mediasize
-
-
-USAGE = """Copyright (c) 2008-2010 Benjamin Schweizer and others.
-
-usage:
-
-    iotest [-n|--num_threads threads] [-t|--time time] <device>
-
-    threads := number of concurrent io threads, default 1
-    time    := time in seconds, default 10
-    device  := some block device, like /dev/sda
-
-example:
-
-    iotest /dev/sda
-    iotest -n 8 -t 2 /dev/disk0
-
-"""
-
 
 def greek(value, precision=0, prefix=None):
     """Return a string representing the IEC or SI suffix of a value"""
@@ -178,13 +172,11 @@ def iotest(dev, blocksize=512, t=10):
 
     fh.close()
 
-    iops = count/t
-    return iops
+    return count/t
 
 
 if __name__ == '__main__':
-    # parse
-
+    # parse cli
     t = 10
     num_threads = 1
     dev = None
@@ -201,19 +193,29 @@ if __name__ == '__main__':
         else:
             dev = arg
 
-    # process
-    pool = Pool(num_threads)
+    # run benchmark
     blocksize = 512
     try:
         print "%s, %sB, %d threads:" % (dev, greek(mediasize(dev), 2, 'si'), num_threads)
-        iops = 2
-        while iops > 1 and blocksize < mediasize(dev):
-            iops = 0
+        iops = num_threads+1 # initial loop
+        while iops > num_threads and blocksize < mediasize(dev):
+            # threading boilerplate
+            threads = []
             results = []
+            
+            def results_wrap(results, func, *__args, **__kw):
+                """collect return values from func"""
+                result = func(*__args, **__kw)
+                results.append(result)
+
             for i in range(0, num_threads):
-                results.append(pool.apply_async(func=iotest, args=(dev, blocksize, t,)))
-            for result in results:
-                iops += result.get(3600) # KeyboardInterrupt is lost if we wait forever
+                _t = threading.Thread(target=results_wrap, args=(results, iotest, dev, blocksize, t,))
+                _t.start()
+                threads.append(_t)
+
+            for _t in threads:
+                _t.join()
+            iops = sum(results)
 
             bandwidth = int(blocksize*iops)
             print " %sB blocks: %6.1f IO/s, %sB/s (%sbit/s)" % (greek(blocksize), iops,
@@ -224,7 +226,5 @@ if __name__ == '__main__':
         raise SystemExit(err_str)
     except KeyboardInterrupt:
         print "caught ctrl-c, bye."
-    finally:
-        pool.terminate()
 
 # eof.
