@@ -41,7 +41,7 @@ USAGE = """Copyright (c) 2008-2010 Benjamin Schweizer and others.
 
 usage:
 
-    iotest [-n|--num_threads threads] [-t|--time time] <device>
+    iops [-n|--num_threads threads] [-t|--time time] <device>
 
     threads := number of concurrent io threads, default 1
     time    := time in seconds, default 10
@@ -49,8 +49,8 @@ usage:
 
 example:
 
-    iotest /dev/sda
-    iotest -n 8 -t 2 /dev/disk0
+    iops /dev/sda
+    iops -n 8 -t 2 /dev/disk0
 
 """
 
@@ -150,8 +150,8 @@ def greek(value, precision=0, prefix=None):
         return fmt % (float(value)/factor, suffix)
 
 
-def iotest(dev, blocksize=512, t=10):
-    """io test
+def iops(dev, blocksize=512, t=10):
+    """measure input/output operations per second
     Perform random 512b aligned reads of blocksize bytes on fh for t seconds
     and print a stats line
     Returns: IOs/s
@@ -197,8 +197,8 @@ if __name__ == '__main__':
     blocksize = 512
     try:
         print "%s, %sB, %d threads:" % (dev, greek(mediasize(dev), 2, 'si'), num_threads)
-        iops = num_threads+1 # initial loop
-        while iops > num_threads and blocksize < mediasize(dev):
+        _iops = num_threads+1 # initial loop
+        while _iops > num_threads and blocksize < mediasize(dev):
             # threading boilerplate
             threads = []
             results = []
@@ -209,16 +209,16 @@ if __name__ == '__main__':
                 results.append(result)
 
             for i in range(0, num_threads):
-                _t = threading.Thread(target=results_wrap, args=(results, iotest, dev, blocksize, t,))
+                _t = threading.Thread(target=results_wrap, args=(results, iops, dev, blocksize, t,))
                 _t.start()
                 threads.append(_t)
 
             for _t in threads:
                 _t.join()
-            iops = sum(results)
+            _iops = sum(results)
 
-            bandwidth = int(blocksize*iops)
-            print " %sB blocks: %6.1f IO/s, %sB/s (%sbit/s)" % (greek(blocksize), iops,
+            bandwidth = int(blocksize*_iops)
+            print " %sB blocks: %6.1f IO/s, %sB/s (%sbit/s)" % (greek(blocksize), _iops,
                 greek(bandwidth, 1), greek(8*bandwidth, 1, 'si'))
 
             blocksize *= 2
