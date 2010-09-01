@@ -26,6 +26,7 @@
 #
 # Changes
 # ~~~~~~~
+# 2010-09-01, benjamin: ioctl cleanup, improved freebsd support
 # 2010-08-12, benjamin/uwe: added multi-threading support
 # 2010-07-22, benjamin: fixed 32bit ioctls on bsd
 # 2010-07-21, benjamin: freebsd/osx support, switched to isc license
@@ -72,10 +73,10 @@ def mediasize(dev):
 
     mediasize = 0 # bytes
 
-    if sys.platform in ['darwin']:
-        # mac os x 10.5+ sysctl from sys/disk.h
-        DKIOCGETBLOCKSIZE = 0x40046418
-        DKIOCGETBLOCKCOUNT = 0x40086419
+    if sys.platform is 'darwin':
+        # mac os x ioctl from sys/disk.h
+        DKIOCGETBLOCKSIZE = 0x40046418  # _IOR('d', 24, uint32_t)
+        DKIOCGETBLOCKCOUNT = 0x40086419 # _IOR('d', 25, uint64_t)
 
         fh = open(dev, 'r')
         buf = array.array('B', range(0,4))  # uint32
@@ -87,9 +88,9 @@ def mediasize(dev):
         fh.close()
         mediasize = blocksize*blockcount
 
-    elif sys.platform in ['freebsd7', 'freebsd8']:
-        # freebsd 8 sysctl from sys/disk.h
-        DIOCGMEDIASIZE = 0x40086481
+    elif sys.platform.startswith('freebsd'):
+        # freebsd ioctl from sys/disk.h
+        DIOCGMEDIASIZE = 0x40086481 # _IOR('d', 129, uint64_t)
 
         fh = open(dev, 'r')
         buf = array.array('B', range(0,8))  # off_t / int64
