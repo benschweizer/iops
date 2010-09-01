@@ -87,7 +87,7 @@ def mediasize(dev):
         fh.close()
         mediasize = blocksize*blockcount
 
-    elif sys.platform in ['freebsd8']:
+    elif sys.platform in ['freebsd7', 'freebsd8']:
         # freebsd 8 sysctl from sys/disk.h
         DIOCGMEDIASIZE = 0x40086481
 
