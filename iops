@@ -74,7 +74,7 @@ def mediasize(dev):
 
     mediasize = 0 # bytes
 
-    if sys.platform is 'darwin':
+    if sys.platform == 'darwin':
         # mac os x ioctl from sys/disk.h
         DKIOCGETBLOCKSIZE = 0x40046418  # _IOR('d', 24, uint32_t)
         DKIOCGETBLOCKCOUNT = 0x40086419 # _IOR('d', 25, uint64_t)
