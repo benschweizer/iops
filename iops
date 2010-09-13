@@ -26,6 +26,7 @@
 #
 # Changes
 # ~~~~~~~
+# 2010-09-13, benjamin: increased num_threads default to 32 (max-ncq)
 # 2010-09-01, benjamin: ioctl cleanup, improved freebsd support
 # 2010-08-12, benjamin/uwe: added multi-threading support
 # 2010-07-22, benjamin: fixed 32bit ioctls on bsd
@@ -179,7 +180,7 @@ def iops(dev, blocksize=512, t=10):
 if __name__ == '__main__':
     # parse cli
     t = 10
-    num_threads = 1
+    num_threads = 32
     dev = None
 
     if len(sys.argv) < 2:
