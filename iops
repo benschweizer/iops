@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c) 2008-2010 Benjamin Schweizer and others.
+# Copyright (c) 2008-2011 Benjamin Schweizer and others.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -23,9 +23,11 @@
 # ~~~~~~~
 # Benjamin Schweizer, http://benjamin-schweizer.de/contact
 # Uwe Menges
+# John Keith Hohm <john at hohm dot net>
 #
 # Changes
 # ~~~~~~~
+# 2011-02-10, john: added win32 support
 # 2010-09-13, benjamin: increased num_threads default to 32 (max-ncq)
 # 2010-09-01, benjamin: ioctl cleanup, improved freebsd support
 # 2010-08-12, benjamin/uwe: added multi-threading support
@@ -39,7 +41,7 @@
 # - check/add netbsd/openbsd mediasize ioctls
 #
 
-USAGE = """Copyright (c) 2008-2010 Benjamin Schweizer and others.
+USAGE = """Copyright (c) 2008-2011 Benjamin Schweizer and others.
 
 usage:
 
@@ -57,7 +59,6 @@ example:
 """
 
 import sys
-import fcntl
 import array
 import struct
 import random
@@ -65,7 +66,7 @@ import time
 import threading
 
 def mediasize(dev):
-    """report the media size for a device"""
+    """report the media size for a device, platform specific code"""
     # caching
     global _mediasizes
     if not '_mediasizes' in globals(): _mediasizes = {}
@@ -76,6 +77,7 @@ def mediasize(dev):
 
     if sys.platform == 'darwin':
         # mac os x ioctl from sys/disk.h
+        import fcntl
         DKIOCGETBLOCKSIZE = 0x40046418  # _IOR('d', 24, uint32_t)
         DKIOCGETBLOCKCOUNT = 0x40086419 # _IOR('d', 25, uint64_t)
 
@@ -91,6 +93,7 @@ def mediasize(dev):
 
     elif sys.platform.startswith('freebsd'):
         # freebsd ioctl from sys/disk.h
+        import fcntl
         DIOCGMEDIASIZE = 0x40086481 # _IOR('d', 129, uint64_t)
 
         fh = open(dev, 'r')
@@ -98,6 +101,19 @@ def mediasize(dev):
         r = fcntl.ioctl(fh.fileno(), DIOCGMEDIASIZE, buf, 1)
         mediasize = struct.unpack('q', buf)[0]
         fh.close()
+
+    elif sys.platform == 'win32':
+        # win32 ioctl from winioctl.h, requires pywin32
+        try:
+            import win32file
+        except ImportError:
+            raise SystemExit("Package pywin32 not found, see http://sf.net/projects/pywin32/")
+        IOCTL_DISK_GET_DRIVE_GEOMETRY = 0x00070000
+        dh = win32file.CreateFile(dev, 0, win32file.FILE_SHARE_READ, None, win32file.OPEN_EXISTING, 0, None)
+        info = win32file.DeviceIoControl(dh, IOCTL_DISK_GET_DRIVE_GEOMETRY, '', 24)
+        win32file.CloseHandle(dh)
+        (cyl_lo, cyl_hi, media_type, tps, spt, bps) = struct.unpack('6L', info)
+        mediasize = ((cyl_hi << 32) + cyl_lo) * tps * spt * bps
 
     else: # linux or compat
         # linux 2.6 lseek from fcntl.h
