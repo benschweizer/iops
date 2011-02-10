@@ -49,7 +49,7 @@ usage:
 
     threads := number of concurrent io threads, default 1
     time    := time in seconds, default 10
-    device  := some block device, like /dev/sda
+    device  := some block device, like /dev/sda or \\\\.\\PhysicalDrive0
 
 example:
 
