@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c) 2008-2011 Benjamin Schweizer and others.
+# Copyright (c) 2008-2013 Benjamin Schweizer and others.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -27,6 +27,7 @@
 #
 # Changes
 # ~~~~~~~
+# 2013-04-19, benjamin: support for non-root users
 # 2011-02-10, john: added win32 support
 # 2010-09-13, benjamin: increased num_threads default to 32 (max-ncq)
 # 2010-09-01, benjamin: ioctl cleanup, improved freebsd support
@@ -41,14 +42,14 @@
 # - check/add netbsd/openbsd mediasize ioctls
 #
 
-USAGE = """Copyright (c) 2008-2011 Benjamin Schweizer and others.
+USAGE = """Copyright (c) 2008-2013 Benjamin Schweizer and others.
 
 usage:
 
     iops [-n|--num_threads threads] [-t|--time time] <device>
 
-    threads := number of concurrent io threads, default 1
-    time    := time in seconds, default 10
+    threads := number of concurrent io threads, default 32
+    time    := time in seconds, default 2
     device  := some block device, like /dev/sda or \\\\.\\PhysicalDrive0
 
 example:
@@ -59,6 +60,7 @@ example:
 """
 
 import sys
+import os
 import array
 import struct
 import random
@@ -74,8 +76,11 @@ def mediasize(dev):
         return _mediasizes[dev]
 
     mediasize = 0 # bytes
+    mediasize =  os.stat(dev)[6] # works not for devices!
 
-    if sys.platform == 'darwin':
+    if mediasize:
+        pass
+    elif sys.platform == 'darwin':
         # mac os x ioctl from sys/disk.h
         import fcntl
         DKIOCGETBLOCKSIZE = 0x40046418  # _IOR('d', 24, uint32_t)
@@ -168,7 +173,7 @@ def greek(value, precision=0, prefix=None):
         return fmt % (float(value)/factor, suffix)
 
 
-def iops(dev, blocksize=512, t=10):
+def iops(dev, blocksize=512, t=2):
     """measure input/output operations per second
     Perform random 512b aligned reads of blocksize bytes on fh for t seconds
     and print a stats line
@@ -181,7 +186,8 @@ def iops(dev, blocksize=512, t=10):
     while time.time() < start+t:
         count += 1
         pos = random.randint(0, mediasize(dev) - blocksize) # need at least one block left
-        pos &= ~0x1ff   # freebsd8: pos needs 512B sector alignment
+        #pos &= ~0x1ff   # freebsd8: pos needs 512B sector alignment
+        pos &= ~(blocksize-1)   # sector alignment at blocksize
         fh.seek(pos)
         blockdata = fh.read(blocksize)
     end = time.time()
@@ -195,7 +201,7 @@ def iops(dev, blocksize=512, t=10):
 
 if __name__ == '__main__':
     # parse cli
-    t = 10
+    t = 2
     num_threads = 32
     dev = None
 
