@@ -24,9 +24,11 @@
 # Benjamin Schweizer, http://benjamin-schweizer.de/contact
 # Uwe Menges
 # John Keith Hohm <john at hohm dot net>
+# Thorsten Staerk <dev at staerk dot de>
 #
 # Changes
 # ~~~~~~~
+# 2015-08-02, thorsten: machine-readable output by option to remove SI units
 # 2013-04-19, benjamin: support for non-root users
 # 2011-02-10, john: added win32 support
 # 2010-09-13, benjamin: increased num_threads default to 32 (max-ncq)
@@ -46,11 +48,12 @@ USAGE = """Copyright (c) 2008-2013 Benjamin Schweizer and others.
 
 usage:
 
-    iops [-n|--num_threads threads] [-t|--time time] <device>
+    iops [-n|--num_threads threads] [-t|--time time] [-m|--machine-readable] <device>
 
     threads := number of concurrent io threads, default 32
     time    := time in seconds, default 2
     device  := some block device, like /dev/sda or \\\\.\\PhysicalDrive0
+    machine-readable : used to switch off conversion into MiB and other SI units
 
 example:
 
