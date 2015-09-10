@@ -48,19 +48,12 @@ USAGE = """Copyright (c) 2008-2013 Benjamin Schweizer and others.
 
 usage:
 
-    iops [-n|--num-threads threads] [-t|--time time] [-m|--machine-readable]
-         [-b|--block-size size] [-s|--sequential] <device>
+    iops [-n|--num_threads threads] [-t|--time time] [-m|--machine-readable] <device>
 
     threads := number of concurrent io threads, default 32
     time    := time in seconds, default 2
-    size    := block size (should be a multiple of 512)
     device  := some block device, like /dev/sda or \\\\.\\PhysicalDrive0
     machine-readable : used to switch off conversion into MiB and other SI units
-
-If an exact block size is not specified using -b, the the size starts
-with 512 and doubles every iteration of the loop until interrupted.
-
-If sequential access is not specified, random access pattern is used.
 
 example:
 
@@ -185,32 +178,28 @@ def greek(value, precision=0, prefix=None):
         return fmt % (float(value)/factor, suffix)
 
 
-def iops(dev, blocksize=512, sequential=False, t=2):
+def iops(dev, blocksize=512, t=2):
     """measure input/output operations per second
     Perform random 512b aligned reads of blocksize bytes on fh for t seconds
     and print a stats line
     Returns: IOs/s
     """
-    import directio
 
-    fd = os.open(dev, os.O_RDONLY | os.O_DIRECT)
+    fh = open(dev, 'r')
     count = 0
     start = time.time()
     while time.time() < start+t:
         count += 1
-        if not sequential:
-            pos = random.randint(0, mediasize(dev) - blocksize)
-            pos &= ~(blocksize-1)   # sector alignment at blocksize
-            os.lseek(fd, pos, os.SEEK_SET)
-        blockdata = directio.read(fd, blocksize)
-        # check wraparound
-        if len(blockdata) == 0 and sequential:
-            os.lseek(fd, 0, os.SEEK_SET)
+        pos = random.randint(0, mediasize(dev) - blocksize) # need at least one block left
+        #pos &= ~0x1ff   # freebsd8: pos needs 512B sector alignment
+        pos &= ~(blocksize-1)   # sector alignment at blocksize
+        fh.seek(pos)
+        blockdata = fh.read(blocksize)
     end = time.time()
 
     t = end - start
 
-    os.close(fd)
+    fh.close()
 
     return count/t
 
@@ -219,11 +208,8 @@ if __name__ == '__main__':
     # parse cli
     t = 2
     num_threads = 32
-    blocksize = 512
     units="si"
     dev = None
-    exact_blocksize = False
-    sequential = False
 
     if len(sys.argv) < 2:
         raise SystemExit(USAGE)
@@ -236,17 +222,13 @@ if __name__ == '__main__':
             t = int(sys.argv.pop(0))
         elif arg in ['-m', '--machine-readable']:
 	    units = "machine-readable"
-        elif arg in ['-b', '--block-size']:
-            blocksize = int(sys.argv.pop(0))
-            exact_blocksize = True
-        elif arg in ['-s', '--sequential']:
-            sequential = True
         else:
             dev = arg
 
     # run benchmark
+    blocksize = 512
     try:
-        print "%s, %sB, %d threads, %s:" % (dev, greek(mediasize(dev), 2, units), num_threads, 'sequential' if sequential else 'random')
+        print "%s, %sB, %d threads:" % (dev, greek(mediasize(dev), 2, units), num_threads)
         _iops = num_threads+1 # initial loop
         while _iops > num_threads and blocksize < mediasize(dev):
             # threading boilerplate
@@ -259,8 +241,7 @@ if __name__ == '__main__':
                 results.append(result)
 
             for i in range(0, num_threads):
-                _t = threading.Thread(target=results_wrap,
-                                      args=(results, iops, dev, blocksize, sequential, t,))
+                _t = threading.Thread(target=results_wrap, args=(results, iops, dev, blocksize, t,))
                 _t.start()
                 threads.append(_t)
 
@@ -272,10 +253,7 @@ if __name__ == '__main__':
             print " %sB blocks: %6.1f IO/s, %sB/s (%sbit/s)" % (greek(blocksize, 0, units), _iops,
                 greek(bandwidth, 1, units), greek(8*bandwidth, 1, units))
 
-            if exact_blocksize:
-                break
             blocksize *= 2
-
     except IOError, (err_no, err_str):
         raise SystemExit(err_str)
     except KeyboardInterrupt:
