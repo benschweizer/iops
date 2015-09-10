@@ -184,8 +184,9 @@ def iops(dev, blocksize=512, t=2):
     and print a stats line
     Returns: IOs/s
     """
+    import directio
 
-    fh = open(dev, 'r')
+    fd = os.open(dev, os.O_RDONLY | os.O_DIRECT)
     count = 0
     start = time.time()
     while time.time() < start+t:
@@ -193,13 +194,13 @@ def iops(dev, blocksize=512, t=2):
         pos = random.randint(0, mediasize(dev) - blocksize) # need at least one block left
         #pos &= ~0x1ff   # freebsd8: pos needs 512B sector alignment
         pos &= ~(blocksize-1)   # sector alignment at blocksize
-        fh.seek(pos)
-        blockdata = fh.read(blocksize)
+        os.lseek(fd, pos, os.SEEK_SET)
+        blockdata = directio.read(fd, blocksize)
     end = time.time()
 
     t = end - start
 
-    fh.close()
+    os.close(fd)
 
     return count/t
 
