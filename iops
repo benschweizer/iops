@@ -48,7 +48,7 @@ USAGE = """Copyright (c) 2008-2013 Benjamin Schweizer and others.
 
 usage:
 
-    iops [-n|--num_threads threads] [-t|--time time] [-m|--machine-readable]
+    iops [-n|--num-threads threads] [-t|--time time] [-m|--machine-readable]
          [-b|--block-size size] <device>
 
     threads := number of concurrent io threads, default 32
