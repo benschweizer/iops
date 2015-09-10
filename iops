@@ -49,7 +49,7 @@ USAGE = """Copyright (c) 2008-2013 Benjamin Schweizer and others.
 usage:
 
     iops [-n|--num-threads threads] [-t|--time time] [-m|--machine-readable]
-         [-b|--block-size size] <device>
+         [-b|--block-size size] [-s|--sequential] <device>
 
     threads := number of concurrent io threads, default 32
     time    := time in seconds, default 2
@@ -59,6 +59,8 @@ usage:
 
 If an exact block size is not specified using -b, the the size starts
 with 512 and doubles every iteration of the loop until interrupted.
+
+If sequential access is not specified, random access pattern is used.
 
 example:
 
@@ -183,7 +185,7 @@ def greek(value, precision=0, prefix=None):
         return fmt % (float(value)/factor, suffix)
 
 
-def iops(dev, blocksize=512, t=2):
+def iops(dev, blocksize=512, sequential=False, t=2):
     """measure input/output operations per second
     Perform random 512b aligned reads of blocksize bytes on fh for t seconds
     and print a stats line
@@ -196,11 +198,14 @@ def iops(dev, blocksize=512, t=2):
     start = time.time()
     while time.time() < start+t:
         count += 1
-        pos = random.randint(0, mediasize(dev) - blocksize) # need at least one block left
-        #pos &= ~0x1ff   # freebsd8: pos needs 512B sector alignment
-        pos &= ~(blocksize-1)   # sector alignment at blocksize
-        os.lseek(fd, pos, os.SEEK_SET)
+        if not sequential:
+            pos = random.randint(0, mediasize(dev) - blocksize)
+            pos &= ~(blocksize-1)   # sector alignment at blocksize
+            os.lseek(fd, pos, os.SEEK_SET)
         blockdata = directio.read(fd, blocksize)
+        # check wraparound
+        if len(blockdata) == 0 and sequential:
+            os.lseek(fd, 0, os.SEEK_SET)
     end = time.time()
 
     t = end - start
@@ -218,6 +223,7 @@ if __name__ == '__main__':
     units="si"
     dev = None
     exact_blocksize = False
+    sequential = False
 
     if len(sys.argv) < 2:
         raise SystemExit(USAGE)
@@ -233,6 +239,8 @@ if __name__ == '__main__':
         elif arg in ['-b', '--block-size']:
             blocksize = int(sys.argv.pop(0))
             exact_blocksize = True
+        elif arg in ['-s', '--sequential']:
+            sequential = True
         else:
             dev = arg
 
@@ -251,7 +259,8 @@ if __name__ == '__main__':
                 results.append(result)
 
             for i in range(0, num_threads):
-                _t = threading.Thread(target=results_wrap, args=(results, iops, dev, blocksize, t,))
+                _t = threading.Thread(target=results_wrap,
+                                      args=(results, iops, dev, blocksize, sequential, t,))
                 _t.start()
                 threads.append(_t)
 
