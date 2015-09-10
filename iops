@@ -192,18 +192,17 @@ def iops(dev, blocksize=512, sequential=False, t=2):
     and print a stats line
     Returns: IOs/s
     """
-    import directio
 
-    fd = os.open(dev, os.O_RDONLY | os.O_DIRECT)
+    fh = open(dev, 'r')
     count = 0
     start = time.time()
     while time.time() < start+t:
         count += 1
         if not sequential:
-            pos = random.randint(0, mediasize(dev) - blocksize)
+            pos = random.randint(0, mediasize(dev) - blocksize) # need at least one block left
             pos &= ~(blocksize-1)   # sector alignment at blocksize
-            os.lseek(fd, pos, os.SEEK_SET)
-        blockdata = directio.read(fd, blocksize)
+            fh.seek(pos)
+        blockdata = fh.read(blocksize)
         # check wraparound
         if len(blockdata) == 0 and sequential:
             os.lseek(fd, 0, os.SEEK_SET)
@@ -211,7 +210,7 @@ def iops(dev, blocksize=512, sequential=False, t=2):
 
     t = end - start
 
-    os.close(fd)
+    fh.close()
 
     return count/t
 
