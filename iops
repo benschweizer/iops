@@ -209,8 +209,10 @@ if __name__ == '__main__':
     # parse cli
     t = 2
     num_threads = 32
+    blocksize = 512
     units="si"
     dev = None
+    exact_blocksize = False
 
     if len(sys.argv) < 2:
         raise SystemExit(USAGE)
@@ -223,11 +225,13 @@ if __name__ == '__main__':
             t = int(sys.argv.pop(0))
         elif arg in ['-m', '--machine-readable']:
 	    units = "machine-readable"
+        elif arg in ['-b', '--block-size']:
+            blocksize = int(sys.argv.pop(0))
+            exact_blocksize = True
         else:
             dev = arg
 
     # run benchmark
-    blocksize = 512
     try:
         print "%s, %sB, %d threads:" % (dev, greek(mediasize(dev), 2, units), num_threads)
         _iops = num_threads+1 # initial loop
@@ -254,7 +258,10 @@ if __name__ == '__main__':
             print " %sB blocks: %6.1f IO/s, %sB/s (%sbit/s)" % (greek(blocksize, 0, units), _iops,
                 greek(bandwidth, 1, units), greek(8*bandwidth, 1, units))
 
+            if exact_blocksize:
+                break
             blocksize *= 2
+
     except IOError, (err_no, err_str):
         raise SystemExit(err_str)
     except KeyboardInterrupt:
