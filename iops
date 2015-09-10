@@ -48,12 +48,17 @@ USAGE = """Copyright (c) 2008-2013 Benjamin Schweizer and others.
 
 usage:
 
-    iops [-n|--num_threads threads] [-t|--time time] [-m|--machine-readable] <device>
+    iops [-n|--num_threads threads] [-t|--time time] [-m|--machine-readable]
+         [-b|--block-size size] <device>
 
     threads := number of concurrent io threads, default 32
     time    := time in seconds, default 2
+    size    := block size (should be a multiple of 512)
     device  := some block device, like /dev/sda or \\\\.\\PhysicalDrive0
     machine-readable : used to switch off conversion into MiB and other SI units
+
+If an exact block size is not specified using -b, the the size starts
+with 512 and doubles every iteration of the loop until interrupted.
 
 example:
 
