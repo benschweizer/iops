@@ -246,7 +246,7 @@ if __name__ == '__main__':
 
     # run benchmark
     try:
-        print "%s, %sB, %d threads:" % (dev, greek(mediasize(dev), 2, units), num_threads)
+        print "%s, %sB, %d threads, %s:" % (dev, greek(mediasize(dev), 2, units), num_threads, 'sequential' if sequential else 'random')
         _iops = num_threads+1 # initial loop
         while _iops > num_threads and blocksize < mediasize(dev):
             # threading boilerplate
