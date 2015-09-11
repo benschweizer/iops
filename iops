@@ -49,7 +49,7 @@ USAGE = """Copyright (c) 2008-2015 Benjamin Schweizer and others.
 usage:
 
     iops [-n|--num-threads threads] [-t|--time time] [-m|--machine-readable]
-         [-b|--block-size size] [-s|--sequential] <device>
+         [-b|--block-size size] [-s|--sequential] [-D|--direct] <device>
 
     num-threads         := number of concurrent io threads, default 32
     time                := time in seconds, default 2
@@ -62,6 +62,9 @@ If an exact block size is not specified using -b, the the size starts
 with 512 and doubles every iteration of the loop until interrupted.
 
 If sequential access is not specified, random access pattern is used.
+
+Direct IO may be used on platforms that support it.  This option is
+not enabled by default.
 
 example:
 
@@ -186,14 +189,14 @@ def greek(value, precision=0, prefix=None):
         return fmt % (float(value)/factor, suffix)
 
 
-def iops(dev, blocksize=512, sequential=False, t=2):
+def iops(dev, blocksize=512, sequential=False, t=2, openfunc=None, readfunc=None):
     """measure input/output operations per second
     Perform random 512b aligned reads of blocksize bytes on fh for t seconds
     and print a stats line
     Returns: IOs/s
     """
 
-    fh = open(dev, 'r')
+    fd = openfunc(dev)
     count = 0
     start = time.time()
     while time.time() < start+t:
@@ -201,8 +204,8 @@ def iops(dev, blocksize=512, sequential=False, t=2):
         if not sequential:
             pos = random.randint(0, mediasize(dev) - blocksize) # need at least one block left
             pos &= ~(blocksize-1)   # sector alignment at blocksize
-            fh.seek(pos)
-        blockdata = fh.read(blocksize)
+            os.lseek(fd, pos, os.SEEK_SET)
+        blockdata = readfunc(fd, blocksize)
         # check wraparound
         if len(blockdata) == 0 and sequential:
             os.lseek(fd, 0, os.SEEK_SET)
@@ -210,7 +213,7 @@ def iops(dev, blocksize=512, sequential=False, t=2):
 
     t = end - start
 
-    fh.close()
+    os.close(fd)
 
     return count/t
 
@@ -224,6 +227,7 @@ if __name__ == '__main__':
     dev = None
     exact_blocksize = False
     sequential = False
+    direct_io = False
 
     if len(sys.argv) < 2:
         raise SystemExit(USAGE)
@@ -241,12 +245,31 @@ if __name__ == '__main__':
             exact_blocksize = True
         elif arg in ['-s', '--sequential']:
             sequential = True
+        elif arg in ['-D', '--direct']:
+            direct_io = True
         else:
             dev = arg
 
+    if direct_io:
+        import directio
+
+        def openfunc(fname):
+            return os.open(fname, os.O_RDONLY | os.O_DIRECT)
+
+        def readfunc(fdesc, size):
+            return directio.read(fdesc, size)
+    else:
+        def openfunc(fname):
+            return os.open(fname, os.O_RDONLY)
+
+        readfunc = os.read
+
     # run benchmark
     try:
-        print "%s, %sB, %d threads, %s:" % (dev, greek(mediasize(dev), 2, units), num_threads, 'sequential' if sequential else 'random')
+        print "%s, %sB, %d threads, %s, %s IO:" % (dev, greek(mediasize(dev), 2, units),
+                                                   num_threads,
+                                                   'sequential' if sequential else 'random',
+                                                   'direct' if direct_io else 'cached')
         _iops = num_threads+1 # initial loop
         while _iops > num_threads and blocksize < mediasize(dev):
             # threading boilerplate
@@ -260,7 +283,8 @@ if __name__ == '__main__':
 
             for i in range(0, num_threads):
                 _t = threading.Thread(target=results_wrap,
-                                      args=(results, iops, dev, blocksize, sequential, t,))
+                                      args=(results, iops, dev, blocksize, sequential, t,
+                                            openfunc, readfunc))
                 _t.start()
                 threads.append(_t)
 
