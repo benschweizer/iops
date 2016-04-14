@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c) 2008-2013 Benjamin Schweizer and others.
+# Copyright (c) 2008-2016 Benjamin Schweizer and others.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -44,7 +44,7 @@
 # - check/add netbsd/openbsd mediasize ioctls
 #
 
-USAGE = """Copyright (c) 2008-2015 Benjamin Schweizer and others.
+USAGE = """Copyright (c) 2008-2016 Benjamin Schweizer and others.
 
 usage:
 
@@ -78,34 +78,79 @@ import random
 import time
 import threading
 
-def mediasize(dev):
-    """report the media size for a device, platform specific code"""
-    # caching
-    global _mediasizes
-    if not '_mediasizes' in globals(): _mediasizes = {}
-    if dev in _mediasizes:
-        return _mediasizes[dev]
+def getsectorsize(dev):
+    """report the sector size for a device, platform specific code"""
+    sectorsize = 0
+    
+    if sys.platform == 'darwin':
+        # mac os x ioctl from sys/disk.h
+        import fcntl
+        DKIOCGETBLOCKSIZE = 0x40046418  # _IOR('d', 24, uint32_t)
 
+        fh = open(dev, 'r')
+        buf = array.array('B', range(0,4))  # uint32
+        r = fcntl.ioctl(fh.fileno(), DKIOCGETBLOCKSIZE, buf, 1)
+        sectorsize = struct.unpack('I', buf)[0]
+        fh.close()
+        
+    elif sys.platform.startswith('freebsd'):
+        # freebsd ioctl from sys/disk.h
+        import fcntl
+        DIOCGSECTORSIZE = 0x40046480  # _IOR('d', 128, uint32_t)
+        
+        fh = open(dev, 'r')
+        buf = array.array('B', range(0,4))  # uint32
+        r = fcntl.ioctl(fh.fileno(), DIOCGSECTORSIZE, buf, 1)
+        sectorsize = struct.unpack('I', buf)[0]
+        fh.close()
+
+    elif sys.platform == 'win32':
+        raise SystemExit("""
+                         developers! developers! developers! developers! developers! developers!
+                         DEVELOPERS! DEVELOPERS! DEVELOPERS! DEVELOPERS! DEVELOPERS! DEVELOPERS!
+                         YES!
+                         """)
+
+    else:
+        # https://gist.github.com/shimarin/34f05caaf75d02966a30
+        # linux
+        # linux/fs.h
+        import fcntl
+        BLKPBSZGET=0x127b # _IO(0x12,123)
+
+        fh = open(dev, 'r')
+        buf = array.array('B', range(0,4))  # int32
+        try:
+            r = fcntl.ioctl(fh.fileno(), BLKPBSZGET, buf, 1)
+            sectorsize = struct.unpack('I', buf)[0]
+        except IOError, (err_no, err_str):
+            if  err_no == 25: # Inappropriate ioctl for device
+                print "warning: guessed sector size to be 512b"
+                sectorsize = 512 # use best bet
+            else:
+                raise
+        fh.close()
+
+    return sectorsize
+
+def getmediasize(dev):
+    """report the media size for a device, platform specific code"""
     mediasize = 0 # bytes
-    mediasize =  os.stat(dev)[6] # works not for devices!
+    mediasize = os.stat(dev)[6] # works not for devices!
 
     if mediasize:
         pass
     elif sys.platform == 'darwin':
         # mac os x ioctl from sys/disk.h
         import fcntl
-        DKIOCGETBLOCKSIZE = 0x40046418  # _IOR('d', 24, uint32_t)
         DKIOCGETBLOCKCOUNT = 0x40086419 # _IOR('d', 25, uint64_t)
 
         fh = open(dev, 'r')
-        buf = array.array('B', range(0,4))  # uint32
-        r = fcntl.ioctl(fh.fileno(), DKIOCGETBLOCKSIZE, buf, 1)
-        blocksize = struct.unpack('I', buf)[0]
         buf = array.array('B', range(0,8))  # uint64
         r = fcntl.ioctl(fh.fileno(), DKIOCGETBLOCKCOUNT, buf, 1)
         blockcount = struct.unpack('Q', buf)[0]
         fh.close()
-        mediasize = blocksize*blockcount
+        mediasize = getsectorsize(dev)*blockcount
 
     elif sys.platform.startswith('freebsd'):
         # freebsd ioctl from sys/disk.h
@@ -145,7 +190,6 @@ def mediasize(dev):
     if not mediasize:
         raise Exception("cannot determine media size")
 
-    _mediasizes[dev] = mediasize
     return mediasize
 
 def greek(value, precision=0, prefix=None):
@@ -199,8 +243,8 @@ def iops(dev, blocksize=512, sequential=False, t=2):
     while time.time() < start+t:
         count += 1
         if not sequential:
-            pos = random.randint(0, mediasize(dev) - blocksize) # need at least one block left
-            pos &= ~(blocksize-1)   # sector alignment at blocksize
+            pos = random.randint(0, mediasize - blocksize) # need at least one block left
+            pos &= ~(sectorsize-1)   # sector alignment at blocksize
             fh.seek(pos)
         blockdata = fh.read(blocksize)
         # check wraparound
@@ -220,7 +264,7 @@ if __name__ == '__main__':
     t = 2
     num_threads = 32
     blocksize = 512
-    units="si"
+    units=""
     dev = None
     exact_blocksize = False
     sequential = False
@@ -246,9 +290,11 @@ if __name__ == '__main__':
 
     # run benchmark
     try:
-        print "%s, %sB, %d threads, %s:" % (dev, greek(mediasize(dev), 2, units), num_threads, 'sequential' if sequential else 'random')
+        mediasize = getmediasize(dev)
+        sectorsize = getsectorsize(dev)
+        print "%s, %sB, %s Byte sectors, %d threads, %s:" % (dev, greek(mediasize, 2, units), sectorsize, num_threads, 'sequential' if sequential else 'random')
         _iops = num_threads+1 # initial loop
-        while _iops > num_threads and blocksize < mediasize(dev):
+        while _iops > max(1, num_threads/4) and blocksize < mediasize:
             # threading boilerplate
             threads = []
             results = []
