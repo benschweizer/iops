@@ -38,22 +38,22 @@
 
 USAGE = """Copyright (c) 2008-2016 Benjamin Schweizer and others.
 
+iops is an IO benachmark tool that performs random reads on block devices.
+If an exact block size is not specified using -b, the the size starts with
+the physical sector size (defaulting to 4k) and doubles every iteration of
+the loop. You can switch the read pattern using -p toggle.
+
 usage:
 
     iops [-n|--num-threads threads] [-t|--time time] [-m|--machine-readable]
-         [-b|--block-size size] [-s|--sequential] <device>
+         [-b|--block-size size] [-p|--pattern random|sequential] <device>
 
     num-threads         := number of concurrent io threads, default 32
     time                := time in seconds, default 2
     machine-readable    := used to switch off conversion into MiB and other SI units
     block-size          := block size (should be a multiple of 512)
-    sequential          := use sequential access pattern instead of random
+    pattern             := random|sequential
     device              := some block device, like /dev/sda or \\\\.\\PhysicalDrive0
-
-If an exact block size is not specified using -b, the the size starts
-with 512 and doubles every iteration of the loop until interrupted.
-
-If sequential access is not specified, random access pattern is used.
 
 example:
 
@@ -155,9 +155,9 @@ def greek(value, precision=0, prefix=None):
     """Return a string representing the IEC or SI suffix of a value"""
     # Copyright (c) 1999 Martin Pohl, copied from
     # http://mail.python.org/pipermail/python-list/1999-December/018519.html
-    if prefix=="machine-readable":
+    if prefix=='machine-readable':
         _abbrevs = [ (1     , ' ') ]
-    elif prefix=="si":
+    elif prefix=='si':
         # Use SI (10-based) units
         _abbrevs = [
             (10**15, 'P'),
@@ -183,12 +183,12 @@ def greek(value, precision=0, prefix=None):
             break
 
     if precision == 0:
-        return "%3.d %s" % (int(value/factor), suffix)
+        return '%3.d %s' % (int(value/factor), suffix)
     else:
-        fmt="%%%d.%df %%s" % (4+precision, precision)
+        fmt='%%%d.%df %%s' % (4+precision, precision)
         return fmt % (float(value)/factor, suffix)
 
-def iops(dev, blocksize=512, sequential=False, t=2):
+def iops(dev, blocksize=512, pattern='random', t=2):
     """measure input/output operations per second
     Perform random 512b aligned reads of blocksize bytes on fh for t seconds
     and print a stats line
@@ -200,13 +200,13 @@ def iops(dev, blocksize=512, sequential=False, t=2):
     start = time.time()
     while time.time() < start+t:
         count += 1
-        if not sequential:
+        if pattern=='random':
             pos = random.randint(0, mediasize - blocksize) # need at least one block left
             pos &= ~(sectorsize-1)   # sector alignment at blocksize
             fh.seek(pos)
         blockdata = fh.read(blocksize)
         # check wraparound
-        if len(blockdata) == 0 and sequential:
+        if len(blockdata) == 0 and pattern=='sequential':
             os.lseek(fd, 0, os.SEEK_SET)
     end = time.time()
 
@@ -219,13 +219,13 @@ def iops(dev, blocksize=512, sequential=False, t=2):
 
 if __name__ == '__main__':
     # parse cli
-    t = 2
-    num_threads = 32
-    blocksize = 512
-    units="si"
-    dev = None
+    t = 2                       # seconds
+    num_threads = 32            # threads
+    blocksize = 512             # bytes
+    units='si'                  # si|machine-readable
+    dev = None                  # /dev/sda
     exact_blocksize = False
-    sequential = False
+    pattern='random'            # random|sequential
 
     if len(sys.argv) < 2:
         raise SystemExit(USAGE)
@@ -237,19 +237,21 @@ if __name__ == '__main__':
         elif arg in ['-t', '--time']:
             t = int(sys.argv.pop(0))
         elif arg in ['-m', '--machine-readable']:
-	    units = "machine-readable"
+	    units = 'machine-readable'
         elif arg in ['-b', '--block-size']:
             blocksize = int(sys.argv.pop(0))
             exact_blocksize = True
-        elif arg in ['-s', '--sequential']:
-            sequential = True
+        elif arg in ['-p', '--pattern']:
+            pattern = sys.argv.pop(0)
+            if not pattern in ['random', 'sequential']:
+                raise SystemExit("unknown pattern: %s" % pattern)
         else:
             dev = arg
 
     # run benchmark
     try:
         mediasize, sectorsize = getsizes(dev)
-        print "%s, %s, sectorsize=%dB, #threads=%d, mode=%s:" % (dev, greek(mediasize, 2, units), sectorsize, num_threads, 'sequential' if sequential else 'random')
+        print "%s, %s, sectorsize=%dB, #threads=%d, pattern=%s:" % (dev, greek(mediasize, 2, units), sectorsize, num_threads, pattern)
         _iops = num_threads+1 # initial loop
         while _iops > max(1, num_threads/4) and blocksize < mediasize:
             # threading boilerplate
@@ -263,7 +265,7 @@ if __name__ == '__main__':
 
             for i in range(0, num_threads):
                 _t = threading.Thread(target=results_wrap,
-                                      args=(results, iops, dev, blocksize, sequential, t,))
+                                      args=(results, iops, dev, blocksize, pattern, t,))
                 _t.start()
                 threads.append(_t)
 
@@ -282,6 +284,6 @@ if __name__ == '__main__':
     except IOError, (err_no, err_str):
         raise SystemExit(err_str)
     except KeyboardInterrupt:
-        print "caught ctrl-c, bye."
+        raise SystemExit("caught ctrl-c, bye.")
 
 # eof.
