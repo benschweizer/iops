@@ -221,7 +221,7 @@ if __name__ == '__main__':
     t = 2
     num_threads = 32
     blocksize = 512
-    units=""
+    units="si"
     dev = None
     exact_blocksize = False
     sequential = False
@@ -248,7 +248,7 @@ if __name__ == '__main__':
     # run benchmark
     try:
         mediasize, sectorsize = getsizes(dev)
-        print "%s, %sB, %s Byte sectors, %d threads, %s:" % (dev, greek(mediasize, 2, units), sectorsize, num_threads, 'sequential' if sequential else 'random')
+        print "%s, %s, sectorsize=%dB, #threads=%d, mode=%s:" % (dev, greek(mediasize, 2, units), sectorsize, num_threads, 'sequential' if sequential else 'random')
         _iops = num_threads+1 # initial loop
         while _iops > max(1, num_threads/4) and blocksize < mediasize:
             # threading boilerplate
@@ -279,7 +279,6 @@ if __name__ == '__main__':
             blocksize *= 2
 
     except IOError, (err_no, err_str):
-        raise
         raise SystemExit(err_str)
     except KeyboardInterrupt:
         print "caught ctrl-c, bye."
