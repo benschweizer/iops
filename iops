@@ -23,21 +23,13 @@
 # ~~~~~~~
 # Benjamin Schweizer, http://benjamin-schweizer.de/contact
 # Uwe Menges
+# Andreas Turtschan <dlat at sickos dot org>
 # John Keith Hohm <john at hohm dot net>
 # Thorsten Staerk <dev at staerk dot de>
 #
 # Changes
 # ~~~~~~~
-# 2015-08-02, thorsten: machine-readable output by option to remove SI units
-# 2013-04-19, benjamin: support for non-root users
-# 2011-02-10, john: added win32 support
-# 2010-09-13, benjamin: increased num_threads default to 32 (max-ncq)
-# 2010-09-01, benjamin: ioctl cleanup, improved freebsd support
-# 2010-08-12, benjamin/uwe: added multi-threading support
-# 2010-07-22, benjamin: fixed 32bit ioctls on bsd
-# 2010-07-21, benjamin: freebsd/osx support, switched to isc license
-# 2009-09-16, uwe: changed formatting, fixed last block bug
-# 2008-10-16, benjamin: initial release
+# see git commit messages
 #
 # Todo
 # ~~~~
@@ -78,92 +70,54 @@ import random
 import time
 import threading
 
-def getsectorsize(dev):
-    """report the sector size for a device, platform specific code"""
-    sectorsize = 0
-    
-    if sys.platform == 'darwin':
-        # mac os x ioctl from sys/disk.h
-        import fcntl
-        DKIOCGETBLOCKSIZE = 0x40046418  # _IOR('d', 24, uint32_t)
+def getsizes(dev):
+    """report media size and sector size for a device, platform specific code"""
+    mediasize = 0       # bytes
+    sectorsize = 4096   # bytes; educated guess
 
-        fh = open(dev, 'r')
-        buf = array.array('B', range(0,4))  # uint32
-        r = fcntl.ioctl(fh.fileno(), DKIOCGETBLOCKSIZE, buf, 1)
-        sectorsize = struct.unpack('I', buf)[0]
-        fh.close()
-        
-    elif sys.platform.startswith('freebsd'):
-        # freebsd ioctl from sys/disk.h
-        import fcntl
-        DIOCGSECTORSIZE = 0x40046480  # _IOR('d', 128, uint32_t)
-        
-        fh = open(dev, 'r')
-        buf = array.array('B', range(0,4))  # uint32
-        r = fcntl.ioctl(fh.fileno(), DIOCGSECTORSIZE, buf, 1)
-        sectorsize = struct.unpack('I', buf)[0]
-        fh.close()
-
-    elif sys.platform == 'win32':
-        raise SystemExit("""
-                         developers! developers! developers! developers! developers! developers!
-                         DEVELOPERS! DEVELOPERS! DEVELOPERS! DEVELOPERS! DEVELOPERS! DEVELOPERS!
-                         YES!
-                         """)
-
-    else:
-        # https://gist.github.com/shimarin/34f05caaf75d02966a30
-        # linux
-        # linux/fs.h
-        import fcntl
-        BLKPBSZGET=0x127b # _IO(0x12,123)
-
-        fh = open(dev, 'r')
-        buf = array.array('B', range(0,4))  # int32
-        try:
-            r = fcntl.ioctl(fh.fileno(), BLKPBSZGET, buf, 1)
-            sectorsize = struct.unpack('I', buf)[0]
-        except IOError, (err_no, err_str):
-            if  err_no == 25: # Inappropriate ioctl for device
-                print "warning: guessed sector size to be 512b"
-                sectorsize = 512 # use best bet
-            else:
-                raise
-        fh.close()
-
-    return sectorsize
-
-def getmediasize(dev):
-    """report the media size for a device, platform specific code"""
-    mediasize = 0 # bytes
-    mediasize = os.stat(dev)[6] # works not for devices!
+    try:
+        # normal files, fails on block devices
+        mediasize = os.stat(dev)[6]
+    except:
+        print "debug"
+        pass
 
     if mediasize:
         pass
     elif sys.platform == 'darwin':
         # mac os x ioctl from sys/disk.h
-        import fcntl
+        DKIOCGETBLOCKSIZE = 0x40046418  # _IOR('d', 24, uint32_t)
         DKIOCGETBLOCKCOUNT = 0x40086419 # _IOR('d', 25, uint64_t)
 
+        import fcntl
         fh = open(dev, 'r')
         buf = array.array('B', range(0,8))  # uint64
         r = fcntl.ioctl(fh.fileno(), DKIOCGETBLOCKCOUNT, buf, 1)
         blockcount = struct.unpack('Q', buf)[0]
+        buf = array.array('B', range(0,4))  # uint32
+        r = fcntl.ioctl(fh.fileno(), DKIOCGETBLOCKSIZE, buf, 1)
+        sectorsize = struct.unpack('I', buf)[0]
+        mediasize = sectorsize*blockcount
         fh.close()
-        mediasize = getsectorsize(dev)*blockcount
-
+        
     elif sys.platform.startswith('freebsd'):
         # freebsd ioctl from sys/disk.h
-        import fcntl
+        DIOCGSECTORSIZE = 0x40046480  # _IOR('d', 128, uint32_t)
         DIOCGMEDIASIZE = 0x40086481 # _IOR('d', 129, uint64_t)
+        
+        import fcntl
 
         fh = open(dev, 'r')
+        buf = array.array('B', range(0,4))  # uint32
+        r = fcntl.ioctl(fh.fileno(), DIOCGSECTORSIZE, buf, 1)
+        sectorsize = struct.unpack('I', buf)[0]
         buf = array.array('B', range(0,8))  # off_t / int64
         r = fcntl.ioctl(fh.fileno(), DIOCGMEDIASIZE, buf, 1)
         mediasize = struct.unpack('q', buf)[0]
         fh.close()
 
     elif sys.platform == 'win32':
+        sectorsize = 512 # fixme
         # win32 ioctl from winioctl.h, requires pywin32
         try:
             import win32file
@@ -176,21 +130,25 @@ def getmediasize(dev):
         (cyl_lo, cyl_hi, media_type, tps, spt, bps) = struct.unpack('6L', info)
         mediasize = ((cyl_hi << 32) + cyl_lo) * tps * spt * bps
 
-    else: # linux or compat
-        # linux 2.6 lseek from fcntl.h
-        SEEK_SET=0
-        SEEK_CUR=1
-        SEEK_END=2
+    elif sys.platform == 'linux2':
+        # https://people.redhat.com/msnitzer/docs/io-limits.txt
+        # linux/fs.h
+        BLKGETSIZE64=0x80081272 # _IOR(0x12,114,size_t) 
+        BLKPBSZGET=0x127b # _IO(0x12,123)
 
+        import fcntl
         fh = open(dev, 'r')
-        fh.seek(0,SEEK_END)
-        mediasize = fh.tell()
+        buf = array.array('B', range(0,4))  # int32
+        r = fcntl.ioctl(fh.fileno(), BLKPBSZGET, buf, 1)
+        sectorsize = struct.unpack('I', buf)[0]
+        buf = array.array('B', range(0,8))  # u64
+        r = fcntl.ioctl(fh.fileno(), BLKGETSIZE64, buf, 1)
+        mediasize = struct.unpack('Q', buf)[0]
         fh.close()
+    else:
+        raise Exception("platform specific code not present for %s" % sys.platform)
 
-    if not mediasize:
-        raise Exception("cannot determine media size")
-
-    return mediasize
+    return mediasize, sectorsize
 
 def greek(value, precision=0, prefix=None):
     """Return a string representing the IEC or SI suffix of a value"""
@@ -228,7 +186,6 @@ def greek(value, precision=0, prefix=None):
     else:
         fmt="%%%d.%df %%s" % (4+precision, precision)
         return fmt % (float(value)/factor, suffix)
-
 
 def iops(dev, blocksize=512, sequential=False, t=2):
     """measure input/output operations per second
@@ -290,8 +247,7 @@ if __name__ == '__main__':
 
     # run benchmark
     try:
-        mediasize = getmediasize(dev)
-        sectorsize = getsectorsize(dev)
+        mediasize, sectorsize = getsizes(dev)
         print "%s, %sB, %s Byte sectors, %d threads, %s:" % (dev, greek(mediasize, 2, units), sectorsize, num_threads, 'sequential' if sequential else 'random')
         _iops = num_threads+1 # initial loop
         while _iops > max(1, num_threads/4) and blocksize < mediasize:
@@ -323,6 +279,7 @@ if __name__ == '__main__':
             blocksize *= 2
 
     except IOError, (err_no, err_str):
+        raise
         raise SystemExit(err_str)
     except KeyboardInterrupt:
         print "caught ctrl-c, bye."
