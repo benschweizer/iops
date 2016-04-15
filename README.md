@@ -26,3 +26,8 @@ iops /dev/sda
 iops --num-threads 8 --time 2 /dev/disk0
 iops --num-threads 1 --block-size 512 --pattern sequential /dev/disk0
 ```
+
+Links
+-----
+http://www.linux-magazin.de/Ausgaben/2016/03/I-O-Benchmarking
+
