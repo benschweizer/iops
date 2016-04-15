@@ -58,7 +58,8 @@ usage:
 example:
 
     iops /dev/sda
-    iops -n 8 -t 2 /dev/disk0
+    iops --num-threads 8 --time 2 /dev/disk0
+    iops --num-threads 1 --block-size 512 --pattern sequential /dev/disk0
 
 """
 
