@@ -86,5 +86,5 @@ $ iops --time 10 --num-threads 1 --block-size 16768 --pattern sequential /dev/di
 
 Links
 -----
-http://www.linux-magazin.de/Ausgaben/2016/03/I-O-Benchmarking (German)
-http://www.admin-magazine.com/Archive/2016/32/Fundamentals-of-I-O-benchmarking (English)
+- http://www.linux-magazin.de/Ausgaben/2016/03/I-O-Benchmarking (German)
+- http://www.admin-magazine.com/Archive/2016/32/Fundamentals-of-I-O-benchmarking (English)
