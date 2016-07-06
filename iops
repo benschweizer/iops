@@ -39,7 +39,7 @@
 USAGE = """Copyright (c) 2008-2016 Benjamin Schweizer and others.
 
 iops is an IO benchmark tool that performs random reads on block devices.
-If an exact block size is not specified using -b, the the size starts with
+If a single block size is not specified using -b, the the size starts with
 the physical sector size (defaulting to 4k) and doubles every iteration of
 the loop. You can switch the read pattern using -p toggle.
 
@@ -231,7 +231,7 @@ if __name__ == '__main__':
     blocksize = 512             # bytes
     units='si'                  # si|machine-readable
     dev = None                  # /dev/sda
-    exact_blocksize = False
+    single_blocksize = False
     pattern='random'            # random|sequential
 
     if len(sys.argv) < 2:
@@ -247,7 +247,7 @@ if __name__ == '__main__':
 	    units = 'machine-readable'
         elif arg in ['-b', '--block-size']:
             blocksize = int(sys.argv.pop(0))
-            exact_blocksize = True
+            single_blocksize = True
         elif arg in ['-p', '--pattern']:
             pattern = sys.argv.pop(0)
             if not pattern in ['random', 'sequential']:
@@ -284,7 +284,7 @@ if __name__ == '__main__':
             print " %sB blocks: %6.1f IO/s, %sB/s (%sbit/s)" % (greek(blocksize, 0, units), _iops,
                 greek(bandwidth, 1, units), greek(8*bandwidth, 1, units))
 
-            if exact_blocksize:
+            if single_blocksize:
                 break
             blocksize *= 2
 
