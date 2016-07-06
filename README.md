@@ -1,9 +1,9 @@
 iops
 =====
-iops is an IO benachmark tool that performs random reads on block devices.
+iops is an IO benachmark tool that reads block devices randomly (default).
 If a single block size is not specified using -b, the the size starts with
 the physical sector size (defaulting to 4k) and doubles every iteration of
-the loop. You can switch the read pattern using -p toggle.
+the loop. You can switch the read pattern to sequential using -p toggle.
 
 Usage
 -----
