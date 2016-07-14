@@ -135,7 +135,8 @@ def getsizes(dev):
     elif sys.platform == 'linux2':
         # https://people.redhat.com/msnitzer/docs/io-limits.txt
         # linux/fs.h
-        BLKGETSIZE64=0x80081272 # _IOR(0x12,114,size_t) 
+        BLKGETSIZE64=0x80081272 # _IOR(0x12,114,size_t)
+        BLKGETSIZE=0x1260
         BLKPBSZGET=0x127b # _IO(0x12,123)
 
         import fcntl
@@ -143,9 +144,14 @@ def getsizes(dev):
         buf = array.array('B', range(0,4))  # int32
         r = fcntl.ioctl(fh.fileno(), BLKPBSZGET, buf, 1)
         sectorsize = struct.unpack('I', buf)[0]
-        buf = array.array('B', range(0,8))  # u64
-        r = fcntl.ioctl(fh.fileno(), BLKGETSIZE64, buf, 1)
-        mediasize = struct.unpack('Q', buf)[0]
+        try:
+            buf = array.array('B', range(0,8))  # u64
+            r = fcntl.ioctl(fh.fileno(), BLKGETSIZE64, buf, 1)
+            mediasize = struct.unpack('Q', buf)[0]
+        except IOError, (err_no, err_str):
+            buf = array.array('B', range(0,4))  # u32
+            r = fcntl.ioctl(fh.fileno(), BLKGETSIZE, buf, 1)
+            mediasize = struct.unpack('I', buf)[0]*512
         fh.close()
     else:
         raise Exception("platform specific code not present for %s" % sys.platform)
