@@ -214,7 +214,7 @@ def iops(dev, blocksize=512, pattern='random', t=2):
         blockdata = fh.read(blocksize)
         # check wraparound
         if len(blockdata) == 0 and pattern=='sequential':
-            os.lseek(fd, 0, os.SEEK_SET)
+            os.lseek(fh.fileno(), 0, os.SEEK_SET)
     end = time.time()
 
     t = end - start
