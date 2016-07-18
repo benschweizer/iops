@@ -197,8 +197,8 @@ def greek(value, precision=0, prefix=None):
 
 def iops(dev, blocksize=512, pattern='random', t=2):
     """measure input/output operations per second
-    Perform random 512b aligned reads of blocksize bytes on fh for t seconds
-    and print a stats line
+    Perform random or sequential aligned reads of blocksize bytes
+    on fh for t seconds and return statistics
     Returns: IOs/s
     """
 
@@ -206,12 +206,12 @@ def iops(dev, blocksize=512, pattern='random', t=2):
     count = 0
     start = time.time()
     while time.time() < start+t:
-        count += 1
         if pattern=='random':
             pos = random.randint(0, mediasize - blocksize) # need at least one block left
             pos &= ~(sectorsize-1)   # sector alignment at blocksize
             fh.seek(pos)
         blockdata = fh.read(blocksize)
+        count += 1
         # check wraparound
         if len(blockdata) == 0 and pattern=='sequential':
             os.lseek(fh.fileno(), 0, os.SEEK_SET)
