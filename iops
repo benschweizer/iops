@@ -248,6 +248,8 @@ if __name__ == '__main__':
         elif arg in ['-b', '--block-size']:
             blocksize = int(sys.argv.pop(0))
             single_blocksize = True
+            if blocksize < 512:
+                raise SystemExit("block size too small: %d" % blocksize)
         elif arg in ['-p', '--pattern']:
             pattern = sys.argv.pop(0)
             if not pattern in ['random', 'sequential']:
