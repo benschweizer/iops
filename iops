@@ -203,6 +203,8 @@ def iops(dev, blocksize=512, pattern='random', t=2):
     """
 
     fh = open(dev, 'r')
+    blocks = int(mediasize / blocksize)
+    seq_block = 0
     count = 0
     start = time.time()
     while time.time() < start+t:
@@ -212,9 +214,11 @@ def iops(dev, blocksize=512, pattern='random', t=2):
             fh.seek(pos)
         blockdata = fh.read(blocksize)
         count += 1
+        seq_block += 1
         # check wraparound
-        if len(blockdata) == 0 and pattern=='sequential':
+        if pattern=='sequential' and seq_block >= blocks:
             os.lseek(fh.fileno(), 0, os.SEEK_SET)
+            seq_block = 0
     end = time.time()
 
     t = end - start
