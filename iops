@@ -38,10 +38,10 @@
 
 USAGE = """Copyright (c) 2008-2016 Benjamin Schweizer and others.
 
-iops is an IO benchmark tool that performs random reads on block devices.
-If an exact block size is not specified using -b, the the size starts with
+iops is an IO benachmark tool that reads block devices randomly (default).
+If a single block size is not specified using -b, the the size starts with
 the physical sector size (defaulting to 4k) and doubles every iteration of
-the loop. You can switch the read pattern using -p toggle.
+the loop. You can switch the read pattern to sequential using -p toggle.
 
 usage:
 
@@ -197,24 +197,28 @@ def greek(value, precision=0, prefix=None):
 
 def iops(dev, blocksize=512, pattern='random', t=2):
     """measure input/output operations per second
-    Perform random 512b aligned reads of blocksize bytes on fh for t seconds
-    and print a stats line
+    Perform random or sequential aligned reads of blocksize bytes
+    on fh for t seconds and return statistics
     Returns: IOs/s
     """
 
     fh = open(dev, 'r')
+    blocks = int(mediasize / blocksize)
+    seq_block = 0
     count = 0
     start = time.time()
     while time.time() < start+t:
-        count += 1
         if pattern=='random':
             pos = random.randint(0, mediasize - blocksize) # need at least one block left
             pos &= ~(sectorsize-1)   # sector alignment at blocksize
             fh.seek(pos)
         blockdata = fh.read(blocksize)
+        count += 1
+        seq_block += 1
         # check wraparound
-        if len(blockdata) == 0 and pattern=='sequential':
-            os.lseek(fd, 0, os.SEEK_SET)
+        if pattern=='sequential' and seq_block >= blocks:
+            os.lseek(fh.fileno(), 0, os.SEEK_SET)
+            seq_block = 0
     end = time.time()
 
     t = end - start
@@ -231,7 +235,7 @@ if __name__ == '__main__':
     blocksize = 512             # bytes
     units='si'                  # si|machine-readable
     dev = None                  # /dev/sda
-    exact_blocksize = False
+    single_blocksize = False
     pattern='random'            # random|sequential
 
     if len(sys.argv) < 2:
@@ -247,7 +251,9 @@ if __name__ == '__main__':
 	    units = 'machine-readable'
         elif arg in ['-b', '--block-size']:
             blocksize = int(sys.argv.pop(0))
-            exact_blocksize = True
+            single_blocksize = True
+            if blocksize < 512:
+                raise SystemExit("block size too small: %d" % blocksize)
         elif arg in ['-p', '--pattern']:
             pattern = sys.argv.pop(0)
             if not pattern in ['random', 'sequential']:
@@ -284,7 +290,7 @@ if __name__ == '__main__':
             print " %sB blocks: %6.1f IO/s, %sB/s (%sbit/s)" % (greek(blocksize, 0, units), _iops,
                 greek(bandwidth, 1, units), greek(8*bandwidth, 1, units))
 
-            if exact_blocksize:
+            if single_blocksize:
                 break
             blocksize *= 2
 
