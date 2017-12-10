@@ -1,6 +1,6 @@
 iops
 =====
-iops is an IO benachmark tool that performs random reads on block devices.
+iops is an IO benchmark tool that performs random reads on block devices.
 If an exact block size is not specified using -b, the the size starts with
 the physical sector size (defaulting to 4k) and doubles every iteration of
 the loop. You can switch the read pattern using -p toggle.
