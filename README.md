@@ -84,6 +84,14 @@ $ iops --time 10 --num-threads 1 --block-size 16768 --pattern sequential /dev/di
   16 kB blocks: 7815.2 IO/s, 131.0 MB/s (  1.0 Gbit/s)
 ```
 
+Docker
+------
+There is a [Docker image](https://hub.docker.com/r/cxcv/iops) available on Docker Hub. To run from Docker:
+```
+$ docker run --rm -it --device=/dev/sda cxcv/iops --num-threads 2 /dev/sda
+```
+To make system devices available inside the Docker container, add as many `--device` switches as needed.
+
 Links
 -----
 - [Grundlagen des I/O-Benchmarking](https://www.linux-magazin.de/ausgaben/2016/03/i-o-benchmarking/) (German)
