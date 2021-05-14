@@ -233,6 +233,8 @@ if __name__ == '__main__':
     dev = None                  # /dev/sda
     exact_blocksize = False
     pattern='random'            # random|sequential
+    sectorsize=0
+    mediasize=0
 
     if len(sys.argv) < 2:
         raise SystemExit(USAGE)
@@ -248,6 +250,10 @@ if __name__ == '__main__':
         elif arg in ['-b', '--block-size']:
             blocksize = int(sys.argv.pop(0))
             exact_blocksize = True
+        elif arg in ['--override-sector-size']:
+	    sectorsize = int(sys.argv.pop(0))
+        elif arg in ['--override-media-size']:
+            mediasize = int(sys.argv.pop(0))
         elif arg in ['-p', '--pattern']:
             pattern = sys.argv.pop(0)
             if not pattern in ['random', 'sequential']:
@@ -257,7 +263,10 @@ if __name__ == '__main__':
 
     # run benchmark
     try:
-        mediasize, sectorsize = getsizes(dev)
+	if (not (sectorsize > 0 and mediasize > 0)):
+             mediasize, sectorsize = getsizes(dev)
+	else:
+	     print "sectorsize and mediasize override"
         print "%s, %s, sectorsize=%dB, #threads=%d, pattern=%s:" % (dev, greek(mediasize, 2, units), sectorsize, num_threads, pattern)
         _iops = num_threads+1 # initial loop
         while _iops > max(1, num_threads/4) and blocksize < mediasize:
