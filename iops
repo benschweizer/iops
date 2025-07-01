@@ -79,8 +79,7 @@ def getsizes(dev):
     try:
         # normal files, fails on block devices
         mediasize = os.stat(dev)[6]
-    except IOError as xxx_todo_changeme1:
-        (err_no, err_str) = xxx_todo_changeme1.args
+    except IOError as e:
         pass
     except:
         pass
@@ -149,8 +148,8 @@ def getsizes(dev):
             buf = array.array('B', list(range(0,8)))  # u64
             r = fcntl.ioctl(fh.fileno(), BLKGETSIZE64, buf, 1)
             mediasize = struct.unpack('Q', buf)[0]
-        except IOError as xxx_todo_changeme:
-            (err_no, err_str) = xxx_todo_changeme.args
+        except IOError as e:
+            (err_no, err_str) = e.args
             buf = array.array('B', list(range(0,4)))  # u32
             r = fcntl.ioctl(fh.fileno(), BLKGETSIZE, buf, 1)
             mediasize = struct.unpack('I', buf)[0]*512
@@ -299,8 +298,8 @@ if __name__ == '__main__':
                 break
             blocksize *= 2
 
-    except IOError as xxx_todo_changeme2:
-        (err_no, err_str) = xxx_todo_changeme2.args
+    except IOError as e:
+        (err_no, err_str) = e.args
         raise SystemExit(err_str)
     except KeyboardInterrupt:
         raise SystemExit("caught ctrl-c, bye.")
