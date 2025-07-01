@@ -92,7 +92,7 @@ def getsizes(dev):
         DKIOCGETBLOCKCOUNT = 0x40086419 # _IOR('d', 25, uint64_t)
 
         import fcntl
-        fh = open(dev, 'r')
+        fh = open(dev, 'rb')
         buf = array.array('B', list(range(0,8)))  # uint64
         r = fcntl.ioctl(fh.fileno(), DKIOCGETBLOCKCOUNT, buf, 1)
         blockcount = struct.unpack('Q', buf)[0]
@@ -109,7 +109,7 @@ def getsizes(dev):
 
         import fcntl
 
-        fh = open(dev, 'r')
+        fh = open(dev, 'rb')
         buf = array.array('B', list(range(0,4)))  # uint32
         r = fcntl.ioctl(fh.fileno(), DIOCGSECTORSIZE, buf, 1)
         sectorsize = struct.unpack('I', buf)[0]
@@ -140,7 +140,7 @@ def getsizes(dev):
         BLKPBSZGET=0x127b # _IO(0x12,123)
 
         import fcntl
-        fh = open(dev, 'r')
+        fh = open(dev, 'rb')
         buf = array.array('B', list(range(0,4)))  # int32
         r = fcntl.ioctl(fh.fileno(), BLKPBSZGET, buf, 1)
         sectorsize = struct.unpack('I', buf)[0]
@@ -203,7 +203,7 @@ def iops(dev, blocksize=512, pattern='random', t=2):
     Returns: IOs/s
     """
 
-    fh = open(dev, 'r')
+    fh = open(dev, 'rb')
     count = 0
     start = time.time()
     while time.time() < start+t:
