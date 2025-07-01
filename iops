@@ -132,7 +132,7 @@ def getsizes(dev):
         (cyl_lo, cyl_hi, media_type, tps, spt, bps) = struct.unpack('6L', info)
         mediasize = ((cyl_hi << 32) + cyl_lo) * tps * spt * bps
 
-    elif sys.platform == 'linux2':
+    elif sys.platform in ['linux2', 'linux']:
         # https://people.redhat.com/msnitzer/docs/io-limits.txt
         # linux/fs.h
         BLKGETSIZE64=0x80081272 # _IOR(0x12,114,size_t)
