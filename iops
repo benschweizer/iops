@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
-# Copyright (c) 2008-2016 Benjamin Schweizer and others.
+# Copyright (c) 2008-2025 Benjamin Schweizer and others.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -36,7 +36,7 @@
 # - check/add netbsd/openbsd mediasize ioctls
 #
 
-USAGE = """Copyright (c) 2008-2016 Benjamin Schweizer and others.
+USAGE = """Copyright (c) 2008-2025 Benjamin Schweizer and others.
 
 iops is an IO benchmark tool that performs random reads on block devices.
 If an exact block size is not specified using -b, the the size starts with
@@ -79,7 +79,7 @@ def getsizes(dev):
     try:
         # normal files, fails on block devices
         mediasize = os.stat(dev)[6]
-    except IOError, (err_no, err_str):
+    except IOError as e:
         pass
     except:
         pass
@@ -93,27 +93,27 @@ def getsizes(dev):
 
         import fcntl
         fh = open(dev, 'r')
-        buf = array.array('B', range(0,8))  # uint64
+        buf = array.array('B', list(range(0,8)))  # uint64
         r = fcntl.ioctl(fh.fileno(), DKIOCGETBLOCKCOUNT, buf, 1)
         blockcount = struct.unpack('Q', buf)[0]
-        buf = array.array('B', range(0,4))  # uint32
+        buf = array.array('B', list(range(0,4)))  # uint32
         r = fcntl.ioctl(fh.fileno(), DKIOCGETBLOCKSIZE, buf, 1)
         sectorsize = struct.unpack('I', buf)[0]
         mediasize = sectorsize*blockcount
         fh.close()
-        
+
     elif sys.platform.startswith('freebsd'):
         # freebsd ioctl from sys/disk.h
         DIOCGSECTORSIZE = 0x40046480  # _IOR('d', 128, uint32_t)
         DIOCGMEDIASIZE = 0x40086481 # _IOR('d', 129, uint64_t)
-        
+
         import fcntl
 
         fh = open(dev, 'r')
-        buf = array.array('B', range(0,4))  # uint32
+        buf = array.array('B', list(range(0,4)))  # uint32
         r = fcntl.ioctl(fh.fileno(), DIOCGSECTORSIZE, buf, 1)
         sectorsize = struct.unpack('I', buf)[0]
-        buf = array.array('B', range(0,8))  # off_t / int64
+        buf = array.array('B', list(range(0,8)))  # off_t / int64
         r = fcntl.ioctl(fh.fileno(), DIOCGMEDIASIZE, buf, 1)
         mediasize = struct.unpack('q', buf)[0]
         fh.close()
@@ -141,15 +141,16 @@ def getsizes(dev):
 
         import fcntl
         fh = open(dev, 'r')
-        buf = array.array('B', range(0,4))  # int32
+        buf = array.array('B', list(range(0,4)))  # int32
         r = fcntl.ioctl(fh.fileno(), BLKPBSZGET, buf, 1)
         sectorsize = struct.unpack('I', buf)[0]
         try:
-            buf = array.array('B', range(0,8))  # u64
+            buf = array.array('B', list(range(0,8)))  # u64
             r = fcntl.ioctl(fh.fileno(), BLKGETSIZE64, buf, 1)
             mediasize = struct.unpack('Q', buf)[0]
-        except IOError, (err_no, err_str):
-            buf = array.array('B', range(0,4))  # u32
+        except IOError as e:
+            (err_no, err_str) = e.args
+            buf = array.array('B', list(range(0,4)))  # u32
             r = fcntl.ioctl(fh.fileno(), BLKGETSIZE, buf, 1)
             mediasize = struct.unpack('I', buf)[0]*512
         fh.close()
@@ -177,11 +178,11 @@ def greek(value, precision=0, prefix=None):
     else:
         # Use IEC (2-based) units
         _abbrevs = [
-            (1<<50L, 'Pi'),
-            (1<<40L, 'Ti'),
-            (1<<30L, 'Gi'),
-            (1<<20L, 'Mi'),
-            (1<<10L, 'Ki'),
+            (1<<50, 'Pi'),
+            (1<<40, 'Ti'),
+            (1<<30, 'Gi'),
+            (1<<20, 'Mi'),
+            (1<<10, 'Ki'),
             (1     , '  ')
         ]
 
@@ -246,12 +247,12 @@ if __name__ == '__main__':
         elif arg in ['-t', '--time']:
             t = int(sys.argv.pop(0))
         elif arg in ['-m', '--machine-readable']:
-	    units = 'machine-readable'
+            units = 'machine-readable'
         elif arg in ['-b', '--block-size']:
             blocksize = int(sys.argv.pop(0))
             exact_blocksize = True
         elif arg in ['--override-sector-size']:
-	    sectorsize = int(sys.argv.pop(0))
+            sectorsize = int(sys.argv.pop(0))
         elif arg in ['--override-media-size']:
             mediasize = int(sys.argv.pop(0))
         elif arg in ['-p', '--pattern']:
@@ -263,17 +264,17 @@ if __name__ == '__main__':
 
     # run benchmark
     try:
-	if (not (sectorsize > 0 and mediasize > 0)):
+        if (not (sectorsize > 0 and mediasize > 0)):
              mediasize, sectorsize = getsizes(dev)
-	else:
-	     print "sectorsize and mediasize override"
-        print "%s, %s, sectorsize=%dB, #threads=%d, pattern=%s:" % (dev, greek(mediasize, 2, units), sectorsize, num_threads, pattern)
+        else:
+             print("sectorsize and mediasize override")
+        print("%s, %s, sectorsize=%dB, #threads=%d, pattern=%s:" % (dev, greek(mediasize, 2, units), sectorsize, num_threads, pattern))
         _iops = num_threads+1 # initial loop
         while _iops > max(1, num_threads/4) and blocksize < mediasize:
             # threading boilerplate
             threads = []
             results = []
-            
+
             def results_wrap(results, func, *__args, **__kw):
                 """collect return values from func"""
                 result = func(*__args, **__kw)
@@ -290,14 +291,15 @@ if __name__ == '__main__':
             _iops = sum(results)
 
             bandwidth = int(blocksize*_iops)
-            print " %sB blocks: %6.1f IO/s, %sB/s (%sbit/s)" % (greek(blocksize, 0, units), _iops,
-                greek(bandwidth, 1, units), greek(8*bandwidth, 1, units))
+            print(" %sB blocks: %6.1f IO/s, %sB/s (%sbit/s)" % (greek(blocksize, 0, units), _iops,
+                greek(bandwidth, 1, units), greek(8*bandwidth, 1, units)))
 
             if exact_blocksize:
                 break
             blocksize *= 2
 
-    except IOError, (err_no, err_str):
+    except IOError as e:
+        (err_no, err_str) = e.args
         raise SystemExit(err_str)
     except KeyboardInterrupt:
         raise SystemExit("caught ctrl-c, bye.")
